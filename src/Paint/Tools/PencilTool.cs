@@ -104,6 +104,14 @@ namespace Paint.Tools
             _previousPosition = null;
         }
 
+        public void Dispose()
+        {
+            _device = null;
+            _canvasBrush.Dispose();
+            _canvasBrush = null;
+            _previousPosition = null;
+        }
+
         private CanvasDevice _device;
         private CanvasRenderTarget _canvasBrush;
         private Vector2 _brushSize;

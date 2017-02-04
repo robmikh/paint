@@ -10,7 +10,7 @@ using Windows.UI.Xaml.Input;
 
 namespace Paint.Tools
 {
-    interface ITool
+    interface ITool : IDisposable
     {
         void SetColor(Color color);
 
