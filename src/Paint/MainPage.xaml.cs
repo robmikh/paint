@@ -1,6 +1,7 @@
 ﻿using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Brushes;
 using Microsoft.Graphics.Canvas.UI.Composition;
+using Paint.Drawing;
 using Paint.Hardware;
 using Paint.Tools;
 using System;
@@ -22,7 +23,6 @@ using Windows.UI.Composition;
 using Windows.UI.Core;
 using Windows.UI.Input;
 using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Controls.Primitives;
 using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Hosting;
@@ -37,23 +37,21 @@ namespace Paint
     /// <summary>
     /// An empty page that can be used on its own or navigated to within a Frame.
     /// </summary>
-    public sealed partial class MainPage : Page
+    public sealed partial class MainPage : Windows.UI.Xaml.Controls.Page
     {
         private Compositor _compositor;
         private SpriteVisual _visual;
 
         private CanvasDevice _device;
-        private CanvasRenderTarget _canvasBuffer;
-
+        private Canvas _canvas;
+        
         private ITool _currentTool;
 
-        private object _lock;
         private CanvasSwapChain _swapChain;
         private CanvasImageBrush _backgroundBrush;
         private CancellationTokenSource _drawLoopCancellationTokenSource;
         private AutoResetEvent _swapChainDestructionEvent;
 
-        private Vector2 _canvasSize;
         private Color _currentColor;
         private List<Color> _colors;
         private int _currentColorIndex;
@@ -62,11 +60,11 @@ namespace Paint
         {
             this.InitializeComponent();
 
-            _canvasSize = new Vector2(400, 400);
-            CanvasRectangle.Width = _canvasSize.X;
-            CanvasRectangle.Height = _canvasSize.Y;
+            var canvasSize = new Vector2(400, 400);
+            CanvasRectangle.Width = canvasSize.X;
+            CanvasRectangle.Height = canvasSize.Y;
             InitComposition();
-            InitWin2D();
+            InitWin2D(canvasSize);
             SetupInputHandler();
         }
 
@@ -74,18 +72,17 @@ namespace Paint
         {
             _compositor = ElementCompositionPreview.GetElementVisual(this).Compositor;
             _visual = _compositor.CreateSpriteVisual();
-            _visual.Size = _canvasSize;
 
             ElementCompositionPreview.SetElementChildVisual(this, _visual);
         }
 
-        private void InitWin2D()
+        private void InitWin2D(Vector2 canvasSize)
         {
             var dpi = GraphicsInformation.Dpi;
 
-            _lock = new object();
             _device = new CanvasDevice();
-            _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+            _canvas = new Canvas(_device, canvasSize);
+            
 
             _colors = new List<Color>();
             _colors.Add(Colors.Black);
@@ -99,11 +96,12 @@ namespace Paint
             SwitchToPencilTool();
             DrawBackgroundBrush();
 
-            _swapChain = new CanvasSwapChain(_device, _canvasSize.X, _canvasSize.Y, dpi);
+            _swapChain = new CanvasSwapChain(_device, canvasSize.X, canvasSize.Y, dpi);
 
             var surface = CanvasComposition.CreateCompositionSurfaceForSwapChain(_compositor, _swapChain);
             var brush = _compositor.CreateSurfaceBrush(surface);
             _visual.Brush = brush;
+            _visual.Size = canvasSize;
 
             StartDrawLoop();
         }
@@ -158,13 +156,10 @@ namespace Paint
 
         private void DrawFrame()
         {
-            lock (_lock)
+            using (var drawingSession = _swapChain.CreateDrawingSession(Colors.Transparent))
             {
-                using (var drawingSession = _swapChain.CreateDrawingSession(Colors.Transparent))
-                {
-                    drawingSession.FillRectangle(0, 0, _canvasSize.X, _canvasSize.Y, _backgroundBrush);
-                    drawingSession.DrawImage(_canvasBuffer);
-                }
+                drawingSession.FillRectangle(0, 0, _canvas.Size.X, _canvas.Size.Y, _backgroundBrush);
+                _canvas.Blit(drawingSession);
             }
         }
 
@@ -183,22 +178,22 @@ namespace Paint
 
         private void CanvasRectangle_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerExited(_canvasBuffer, _lock, sender, e);
+            _currentTool.CanvasPointerExited(_canvas.GetCanvasBuffer(), _canvas.GetDrawingLock(), sender, e);
         }
 
         private void CanvasRectangle_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerReleased(_canvasBuffer, _lock, sender, e);
+            _currentTool.CanvasPointerReleased(_canvas.GetCanvasBuffer(), _canvas.GetDrawingLock(), sender, e);
         }
 
         private void CanvasRectangle_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerMoved(_canvasBuffer, _lock, sender, e);
+            _currentTool.CanvasPointerMoved(_canvas.GetCanvasBuffer(), _canvas.GetDrawingLock(), sender, e);
         }
 
         private void CanvasRectangle_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerPressed(_canvasBuffer, _lock, sender, e);
+            _currentTool.CanvasPointerPressed(_canvas.GetCanvasBuffer(), _canvas.GetDrawingLock(), sender, e);
         }
 
         private void CoreWindow_PointerWheelChanged(CoreWindow sender, PointerEventArgs args)
@@ -237,7 +232,7 @@ namespace Paint
                         ResizeCanvas(new Vector2(1000, 1000));
                         return;
                     case VirtualKey.N:
-                        ClearCanvas();
+                        _canvas.ClearCanvas();
                         return;
                     case VirtualKey.S:
                         SaveCanvas();
@@ -262,17 +257,6 @@ namespace Paint
             
         }
 
-        private void ClearCanvas()
-        {
-            lock (_lock)
-            {
-                using (var drawingSession = _canvasBuffer.CreateDrawingSession())
-                {
-                    drawingSession.Clear(Colors.Transparent);
-                }
-            }
-        }
-
         private async void SaveCanvas()
         {
             var picker = new FileSavePicker();
@@ -284,10 +268,7 @@ namespace Paint
 
             if (file != null)
             {
-                using (var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.ReadWrite))
-                {
-                    await _canvasBuffer.SaveAsync(stream, CanvasBitmapFileFormat.Png);
-                }
+                await _canvas.SaveCanvas(file);
             }
         }
 
@@ -309,25 +290,20 @@ namespace Paint
                 {
                     var buffer = await CanvasBitmap.LoadAsync(_device, stream);
 
-                    if (buffer.Size.Width > _canvasSize.X ||
-                        buffer.Size.Height > _canvasSize.Y)
+                    if (buffer.Size.Width > _canvas.Size.X ||
+                        buffer.Size.Height > _canvas.Size.Y)
                     {
-                        CanvasBitmap copy = null;
-                        lock (_lock)
-                        {
-                            // Copy what's currently on the buffer
-                            copy = CanvasBitmap.CreateFromDirect3D11Surface(_device, _canvasBuffer);
-                        }
+                        var copy = _canvas.Copy();
 
                         var newSize = new Vector2(
-                                buffer.Size.Width > _canvasSize.X ? (float)buffer.Size.Width : _canvasSize.X,
-                                buffer.Size.Height > _canvasSize.Y ? (float)buffer.Size.Height : _canvasSize.Y);
+                                buffer.Size.Width > _canvas.Size.X ? (float)buffer.Size.Width : _canvas.Size.X,
+                                buffer.Size.Height > _canvas.Size.Y ? (float)buffer.Size.Height : _canvas.Size.Y);
 
                         ResizeCanvas(newSize);
 
-                        lock (_lock)
+                        lock (_canvas.GetDrawingLock())
                         {
-                            using (var drawingSession = _canvasBuffer.CreateDrawingSession())
+                            using (var drawingSession = _canvas.GetCanvasBuffer().CreateDrawingSession())
                             {
                                 drawingSession.DrawImage(copy);
                                 drawingSession.DrawImage(buffer);
@@ -336,9 +312,9 @@ namespace Paint
                     }
                     else
                     {
-                        lock (_lock)
+                        lock (_canvas.GetDrawingLock())
                         {
-                            using (var drawingSession = _canvasBuffer.CreateDrawingSession())
+                            using (var drawingSession = _canvas.GetCanvasBuffer().CreateDrawingSession())
                             {
                                 drawingSession.DrawImage(buffer);
                             }
@@ -352,26 +328,22 @@ namespace Paint
         {
             var dpi = GraphicsInformation.Dpi;
 
-            if (newSize != _canvasSize)
+            if (newSize != _canvas.Size)
             {
-                _canvasSize = newSize;
                 _drawLoopCancellationTokenSource.Cancel();
                 _swapChainDestructionEvent.WaitOne();
 
-                lock (_lock)
+                lock (_canvas.GetDrawingLock())
                 {
-                    _canvasBuffer.Dispose();
-                    _canvasBuffer = null;
-
-                    _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
-                    _swapChain = new CanvasSwapChain(_device, _canvasSize.X, _canvasSize.Y, dpi);
+                    _canvas.Resize(newSize);
+                    _swapChain = new CanvasSwapChain(_device, _canvas.Size.X, _canvas.Size.Y, dpi);
 
                     var surface = CanvasComposition.CreateCompositionSurfaceForSwapChain(_compositor, _swapChain);
                     var brush = _compositor.CreateSurfaceBrush(surface);
                     _visual.Brush = brush;
-                    _visual.Size = _canvasSize;
-                    CanvasRectangle.Width = _canvasSize.X;
-                    CanvasRectangle.Height = _canvasSize.Y;
+                    _visual.Size = _canvas.Size;
+                    CanvasRectangle.Width = _canvas.Size.X;
+                    CanvasRectangle.Height = _canvas.Size.Y;
 
                     StartDrawLoop();
                 }
