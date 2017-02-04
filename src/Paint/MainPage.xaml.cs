@@ -1,6 +1,8 @@
 ﻿using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Brushes;
 using Microsoft.Graphics.Canvas.UI.Composition;
+using Paint.Hardware;
+using Paint.Tools;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -41,8 +43,9 @@ namespace Paint
         private SpriteVisual _visual;
 
         private CanvasDevice _device;
-        private CanvasRenderTarget _canvasBrush;
         private CanvasRenderTarget _canvasBuffer;
+
+        private ITool _currentTool;
 
         private object _lock;
         private CanvasSwapChain _swapChain;
@@ -51,13 +54,9 @@ namespace Paint
         private AutoResetEvent _swapChainDestructionEvent;
 
         private Vector2 _canvasSize;
-        private Vector2 _brushSize;
-        private float _dpi;
         private Color _currentColor;
         private List<Color> _colors;
         private int _currentColorIndex;
-
-        private Vector2? _previousPosition;
 
         public MainPage()
         {
@@ -82,11 +81,11 @@ namespace Paint
 
         private void InitWin2D()
         {
-            _dpi = DisplayInformation.GetForCurrentView().LogicalDpi;
+            var dpi = GraphicsInformation.Dpi;
 
             _lock = new object();
             _device = new CanvasDevice();
-            _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, _dpi);
+            _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
 
             _colors = new List<Color>();
             _colors.Add(Colors.Black);
@@ -95,10 +94,12 @@ namespace Paint
             _colors.Add(Colors.Green);
             _colors.Add(Colors.Yellow);
 
-            DrawBrush(new Vector2(1, 1), Colors.Black);
+            _currentColorIndex = 0;
+            _currentColor = _colors[_currentColorIndex];
+            SwitchToPencilTool();
             DrawBackgroundBrush();
 
-            _swapChain = new CanvasSwapChain(_device, _canvasSize.X, _canvasSize.Y, _dpi);
+            _swapChain = new CanvasSwapChain(_device, _canvasSize.X, _canvasSize.Y, dpi);
 
             var surface = CanvasComposition.CreateCompositionSurfaceForSwapChain(_compositor, _swapChain);
             var brush = _compositor.CreateSurfaceBrush(surface);
@@ -109,13 +110,15 @@ namespace Paint
 
         private void DrawBackgroundBrush()
         {
+            var dpi = GraphicsInformation.Dpi;
+
             if (_backgroundBrush != null)
             {
                 _backgroundBrush.Dispose();
                 _backgroundBrush = null;
             }
 
-            using (var renderTarget = new CanvasRenderTarget(_device, 16, 16, _dpi))
+            using (var renderTarget = new CanvasRenderTarget(_device, 16, 16, dpi))
             {
                 using (var drawingSession = renderTarget.CreateDrawingSession())
                 {
@@ -127,28 +130,6 @@ namespace Paint
                 _backgroundBrush = new CanvasImageBrush(_device, renderTarget);
                 _backgroundBrush.ExtendX = CanvasEdgeBehavior.Wrap;
                 _backgroundBrush.ExtendY = CanvasEdgeBehavior.Wrap;
-            }
-        }
-
-        private void DrawBrush(Vector2 brushSize, Color color)
-        {
-            _currentColor = color;
-            if (_brushSize != brushSize)
-            {
-                _brushSize = brushSize;
-
-                if (_canvasBrush != null)
-                {
-                    _canvasBrush.Dispose();
-                    _canvasBrush = null;
-                }
-
-                _canvasBrush = new CanvasRenderTarget(_device, _brushSize.X, _brushSize.Y, _dpi);
-            }
-            
-            using (var drawingSession = _canvasBrush.CreateDrawingSession())
-            {
-                drawingSession.Clear(color);
             }
         }
 
@@ -202,38 +183,22 @@ namespace Paint
 
         private void CanvasRectangle_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            _previousPosition = null;
+            _currentTool.CanvasPointerExited(_canvasBuffer, _lock, sender, e);
         }
 
         private void CanvasRectangle_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
-            _previousPosition = null;
+            _currentTool.CanvasPointerReleased(_canvasBuffer, _lock, sender, e);
         }
 
         private void CanvasRectangle_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            var currentPoint = e.GetCurrentPoint(sender as UIElement);
-
-            if (currentPoint.IsInContact)
-            {
-                PaintCanvas(_canvasBrush, currentPoint.Position.ToVector2());
-            }
+            _currentTool.CanvasPointerMoved(_canvasBuffer, _lock, sender, e);
         }
 
         private void CanvasRectangle_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
-            var currentPoint = e.GetCurrentPoint(sender as UIElement);
-
-            _previousPosition = null;
-
-            if (IsKeyDown(VirtualKey.F))
-            {
-                FillCanvas(currentPoint.Position.ToVector2());
-            }
-            else
-            {
-                PaintCanvas(_canvasBrush, currentPoint.Position.ToVector2());
-            }
+            _currentTool.CanvasPointerPressed(_canvasBuffer, _lock, sender, e);
         }
 
         private void CoreWindow_PointerWheelChanged(CoreWindow sender, PointerEventArgs args)
@@ -246,7 +211,8 @@ namespace Paint
             {
                 var index = (_currentColorIndex + delta + _colors.Count) % _colors.Count;
                 SetColorIndex(index);
-                DrawBrush(_brushSize, _colors[_currentColorIndex]);
+                _currentColor = _colors[_currentColorIndex];
+                _currentTool.SetColor(_currentColor);
             }
         }
 
@@ -281,33 +247,19 @@ namespace Paint
                         return;
                 }
             }
-            
-        }
-
-        private void PaintCanvas(CanvasBitmap canvasBrush, Vector2 position)
-        {
-            var size = canvasBrush.Size.ToVector2();
-            var offset = (size / -2.0f) + position;
-
-            lock (_lock)
+            else
             {
-                using (var drawingSession = _canvasBuffer.CreateDrawingSession())
+                switch (args.VirtualKey)
                 {
-                    if (_previousPosition != null)
-                    {
-                        using (var brush = new CanvasImageBrush(_device, _canvasBrush))
-                        {
-                            drawingSession.DrawLine(offset, _previousPosition.Value, brush);
-                        }
-                    }
-                    else
-                    {
-                        drawingSession.DrawImage(canvasBrush, offset);
-                    }
-
-                    _previousPosition = offset;
+                    case VirtualKey.F:
+                        SwitchToFillTool();
+                        return;
+                    case VirtualKey.P:
+                        SwitchToPencilTool();
+                        return;
                 }
             }
+            
         }
 
         private void ClearCanvas()
@@ -396,102 +348,10 @@ namespace Paint
             }
         }
 
-        private void FillCanvas(Vector2 position)
-        {
-            lock (_lock)
-            {
-                var colors = _canvasBuffer.GetPixelColors();
-
-                var targetColor = colors[(int)(position.X + position.Y * _canvasSize.X)];
-
-                if (targetColor != _currentColor)
-                {
-                    FloodPixel((int)position.X, (int)position.Y, colors, targetColor);
-
-                    _canvasBuffer.SetPixelColors(colors);
-                }
-            }
-        }
-
-        private void FloodPixel(int x, int y, Color[] colors, Color targetColor)
-        {
-            if (!(x >= 0 &&
-                x < (int)_canvasSize.X &&
-                y >= 0 &&
-                y < (int)_canvasSize.Y))
-            {
-                return;
-            }
-
-            var index = x + y * (int)_canvasSize.X;
-
-            if (colors[index] != targetColor)
-            {
-                return;
-            }
-
-            var queue = new Queue<int>();
-            queue.Enqueue(index);
-
-            while (queue.Count > 0)
-            {
-                var currentIndex = queue.Dequeue();
-                int currentX = currentIndex % (int)_canvasSize.X;
-                int currentY = currentIndex / (int)_canvasSize.X;
-
-                int w = currentX;
-                while (w >= 0 && colors[w + currentY * (int)_canvasSize.X] ==  targetColor)
-                {
-                    w--;
-                }
-
-                int e = currentX;
-                while (e < (int)_canvasSize.X && colors[e + currentY * (int)_canvasSize.X] == targetColor)
-                {
-                    e++;
-                }
-
-                for (int tempX = w + 1; tempX < e; tempX++)
-                {
-                    var tempIndex = tempX + currentY * (int)_canvasSize.X;
-                    colors[tempIndex] = _currentColor;
-
-                    if (currentY - 1 >= 0)
-                    {
-                        var i = tempX + (currentY - 1) * (int)_canvasSize.X;
-
-                        if (colors[i] == targetColor)
-                        {
-                            queue.Enqueue(i);
-                        }
-                    }
-
-                    if (currentY + 1 < (int)_canvasSize.Y)
-                    {
-                        var i = tempX + (currentY + 1) * (int)_canvasSize.X;
-
-                        if (colors[i] == targetColor)
-                        {
-                            queue.Enqueue(i);
-                        }
-                    }
-                }
-            }
-        }
-
-        private bool CheckPixel(int index, Color[] colors, Color targetColor)
-        {
-            if (colors[index] == targetColor)
-            {
-                colors[index] = _currentColor;
-                return true;
-            }
-
-            return false;
-        }
-
         private void ResizeCanvas(Vector2 newSize)
         {
+            var dpi = GraphicsInformation.Dpi;
+
             if (newSize != _canvasSize)
             {
                 _canvasSize = newSize;
@@ -503,8 +363,8 @@ namespace Paint
                     _canvasBuffer.Dispose();
                     _canvasBuffer = null;
 
-                    _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, _dpi);
-                    _swapChain = new CanvasSwapChain(_device, _canvasSize.X, _canvasSize.Y, _dpi);
+                    _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+                    _swapChain = new CanvasSwapChain(_device, _canvasSize.X, _canvasSize.Y, dpi);
 
                     var surface = CanvasComposition.CreateCompositionSurfaceForSwapChain(_compositor, _swapChain);
                     var brush = _compositor.CreateSurfaceBrush(surface);
@@ -539,6 +399,29 @@ namespace Paint
                 _drawLoopCancellationTokenSource.Token,
                 TaskCreationOptions.LongRunning,
                 TaskScheduler.Default);
+        }
+
+        private void SwitchToFillTool()
+        {
+            var tool = new FillTool(_device, _currentColor);
+            SwitchTool(tool);
+        }
+
+        private void SwitchToPencilTool()
+        {
+            var tool = new PencilTool(_device, new Vector2(1, 1), _currentColor);
+            SwitchTool(tool);
+        }
+
+        private void SwitchTool(ITool tool)
+        {
+            if (_currentTool != null)
+            {
+                _currentTool.Dispose();
+                _currentTool = null;
+            }
+
+            _currentTool = tool;
         }
     }
 }
