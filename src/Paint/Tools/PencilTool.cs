@@ -10,6 +10,7 @@ using Windows.UI;
 using Paint.Hardware;
 using Windows.UI.Xaml;
 using Microsoft.Graphics.Canvas.Brushes;
+using Paint.Drawing;
 
 namespace Paint.Tools
 {
@@ -49,12 +50,18 @@ namespace Paint.Tools
             DrawBrush(_brushSize, color);
         }
 
-        public void CanvasPointerExited(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e)
+        public void CanvasPointerExited(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
         {
             _previousPosition = null;
         }
 
-        public void CanvasPointerMoved(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e)
+        public void CanvasPointerReleased(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
+        {
+            _previousPosition = null;
+            _cachedBuffer = null;
+        }
+
+        public void CanvasPointerMoved(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
         {
             var currentPoint = e.GetCurrentPoint(sender as UIElement);
 
@@ -63,23 +70,24 @@ namespace Paint.Tools
             {
                 if (point.IsInContact)
                 {
-                    PaintCanvas(canvas, drawLock, point.Position.ToVector2());
+                    PaintCanvas(_cachedBuffer, drawLock, point.Position.ToVector2());
                 }
             }
 
             if (currentPoint.IsInContact)
             {
-                PaintCanvas(canvas, drawLock, currentPoint.Position.ToVector2());
+                PaintCanvas(_cachedBuffer, drawLock, currentPoint.Position.ToVector2());
             }
         }
 
-        public void CanvasPointerPressed(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e)
+        public void CanvasPointerPressed(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
         {
             var currentPoint = e.GetCurrentPoint(sender as UIElement);
+            _cachedBuffer = canvas.GetCanvasBuffer();
 
             _previousPosition = null;
 
-            PaintCanvas(canvas, drawLock, currentPoint.Position.ToVector2());
+            PaintCanvas(_cachedBuffer, drawLock, currentPoint.Position.ToVector2());
         }
 
         public void PaintCanvas(CanvasRenderTarget canvas, object drawLock, Vector2 position)
@@ -110,11 +118,6 @@ namespace Paint.Tools
             }
         }
 
-        public void CanvasPointerReleased(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e)
-        {
-            _previousPosition = null;
-        }
-
         public void Dispose()
         {
             _device = null;
@@ -127,5 +130,6 @@ namespace Paint.Tools
         private CanvasRenderTarget _canvasBrush;
         private Vector2 _brushSize;
         private Vector2? _previousPosition;
+        private CanvasRenderTarget _cachedBuffer;
     }
 }

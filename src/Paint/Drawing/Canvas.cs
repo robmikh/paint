@@ -19,12 +19,10 @@ namespace Paint.Drawing
 
         public Canvas(CanvasDevice device, Vector2 canvasSize)
         {
-            var dpi = GraphicsInformation.Dpi;
-
             _lock = new object();
             _device = device;
             _canvasSize = canvasSize;
-            _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+            CreateBuffers();
         }
 
         public object GetDrawingLock()
@@ -34,7 +32,41 @@ namespace Paint.Drawing
 
         public CanvasRenderTarget GetCanvasBuffer()
         {
-            return _canvasBuffer;
+            var oldHead = _canvasBufferHead;
+            var newHead = (_canvasBufferHead + 1) % _canvasBuffers.Length;
+            var newTail = _canvasBufferTail;
+
+            if (newHead == _canvasBufferTail)
+            {
+                newTail = (_canvasBufferTail + 1) % _canvasBuffers.Length;
+            }
+
+            _numUndone = 0;
+
+            var oldBuffer = _canvasBuffers[oldHead];
+            var newBuffer = _canvasBuffers[newHead];
+
+            lock (_lock)
+            {
+                if (newBuffer.Size != oldBuffer.Size)
+                {
+                    var dpi = GraphicsInformation.Dpi;
+                    newBuffer.Dispose();
+                    _canvasBuffers[newHead] = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+                    newBuffer = _canvasBuffers[newHead];
+                }
+
+                using (var drawingSession = newBuffer.CreateDrawingSession())
+                {
+                    drawingSession.Clear(Colors.Transparent);
+                    drawingSession.DrawImage(oldBuffer);
+                }
+
+                _canvasBufferHead = newHead;
+                _canvasBufferTail = newTail;
+            }
+
+            return GetCurrentBuffer();
         }
 
         public CanvasBitmap Copy()
@@ -43,7 +75,7 @@ namespace Paint.Drawing
             lock (_lock)
             {
                 // Copy what's currently on the buffer
-                copy = CanvasBitmap.CreateFromDirect3D11Surface(_device, _canvasBuffer);
+                copy = CanvasBitmap.CreateFromDirect3D11Surface(_device, GetCurrentBuffer());
             }
 
             return copy;
@@ -62,12 +94,15 @@ namespace Paint.Drawing
                     _presenter.Stop();
                 }
 
+                var canvasBuffer = GetCanvasBuffer();
+
                 lock (_lock)
                 {
-                    _canvasBuffer.Dispose();
-                    _canvasBuffer = null;
+                    canvasBuffer.Dispose();
+                    canvasBuffer = null;
 
-                    _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+                    _canvasBuffers[_canvasBufferHead] = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+                    canvasBuffer = _canvasBuffers[_canvasBufferHead];
 
                     if (_presenter != null)
                     {
@@ -75,6 +110,8 @@ namespace Paint.Drawing
                         _presenter.Start();
                     }
                 }
+
+                SizeChanged?.Invoke(this, newSize);
                 return true;
             }
 
@@ -85,15 +122,16 @@ namespace Paint.Drawing
         {
             using (var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.ReadWrite))
             {
-                await _canvasBuffer.SaveAsync(stream, CanvasBitmapFileFormat.Png);
+                await GetCurrentBuffer().SaveAsync(stream, CanvasBitmapFileFormat.Png);
             }
         }
 
         public void ClearCanvas()
         {
+            var buffer = GetCanvasBuffer();
             lock (_lock)
             {
-                using (var drawingSession = GetCanvasBuffer().CreateDrawingSession())
+                using (var drawingSession = buffer.CreateDrawingSession())
                 {
                     drawingSession.Clear(Colors.Transparent);
                 }
@@ -104,7 +142,8 @@ namespace Paint.Drawing
         {
             lock (_lock)
             {
-                drawingSession.DrawImage(_canvasBuffer);
+                var buffer = GetCurrentBuffer();
+                drawingSession.DrawImage(buffer);
             }
         }
 
@@ -118,12 +157,93 @@ namespace Paint.Drawing
             _presenter = null;
         }
 
+        public void Undo()
+        {
+            lock (_lock)
+            {
+                if (_canvasBufferHead != _canvasBufferTail)
+                {
+                    var oldHead = _canvasBufferHead;
+                    _canvasBufferHead = (_canvasBufferHead - 1 + _canvasBuffers.Length) % _canvasBuffers.Length;
+                    _numUndone++;
+
+                    var oldBuffer = _canvasBuffers[oldHead];
+                    var newBuffer = _canvasBuffers[_canvasBufferHead];
+
+                    if (newBuffer.Size != oldBuffer.Size)
+                    {
+                        _canvasSize = newBuffer.Size.ToVector2();
+                        if (_presenter != null)
+                        {
+                            _presenter.Resize();
+                        }
+                        SizeChanged?.Invoke(this, _canvasSize);
+                    }
+                }
+            }
+        }
+
+        public void Redo()
+        {
+            lock (_lock)
+            {
+                if (_numUndone > 0)
+                {
+                    var oldHead = _canvasBufferHead;
+                    _canvasBufferHead = (_canvasBufferHead + 1) % _canvasBuffers.Length;
+                    _numUndone--;
+
+                    var oldBuffer = _canvasBuffers[oldHead];
+                    var newBuffer = _canvasBuffers[_canvasBufferHead];
+
+                    if (newBuffer.Size != oldBuffer.Size)
+                    {
+                        _canvasSize = newBuffer.Size.ToVector2();
+                        if (_presenter != null)
+                        {
+                            _presenter.Resize();
+                        }
+                        SizeChanged?.Invoke(this, _canvasSize);
+                    }
+                }
+            }
+        }
+
+        private CanvasRenderTarget GetCurrentBuffer()
+        {
+            System.Diagnostics.Debug.WriteLine(_canvasBufferHead);
+            return _canvasBuffers[_canvasBufferHead];
+        }
+
+        private void DisposeBuffers()
+        {
+            foreach (var buffer in _canvasBuffers)
+            {
+                buffer.Dispose();
+            }
+            _canvasBuffers = null;
+        }
+
+        private void CreateBuffers()
+        {
+            var dpi = GraphicsInformation.Dpi;
+            _canvasBuffers = new CanvasRenderTarget[MAX_UNDO];
+
+            for (int i = 0; i < _canvasBuffers.Length; i++)
+            {
+                _canvasBuffers[i] = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+            }
+
+            _canvasBufferHead = 0;
+            _canvasBufferTail = 0;
+            _numUndone = 0;
+        }
+
         public void Dispose()
         {
             lock (_lock)
             {
-                _canvasBuffer.Dispose();
-                _canvasBuffer = null;
+                DisposeBuffers();
                 _device = null;
                 _canvasSize = Vector2.Zero;
             }
@@ -133,9 +253,14 @@ namespace Paint.Drawing
 
         private object _lock;
         private CanvasDevice _device;
-        private CanvasRenderTarget _canvasBuffer;
+        private CanvasRenderTarget[] _canvasBuffers;
+        private int _canvasBufferHead;
+        private int _canvasBufferTail;
+        private int _numUndone;
         private Vector2 _canvasSize;
 
         private CanvasPresenter _presenter;
+
+        private static readonly int MAX_UNDO = 5;
     }
 }

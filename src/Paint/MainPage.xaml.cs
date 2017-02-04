@@ -78,6 +78,7 @@ namespace Paint
 
             _device = new CanvasDevice();
             _canvas = new Canvas(_device, canvasSize);
+            _canvas.SizeChanged += OnCanvasSizeChanged;
             
 
             _colors = new List<Color>();
@@ -102,6 +103,13 @@ namespace Paint
             _canvasPresenter.Start();
         }
 
+        private void OnCanvasSizeChanged(object sender, Vector2 e)
+        {
+            _visual.Size = e;
+            CanvasRectangle.Width = e.X;
+            CanvasRectangle.Height = e.Y;
+        }
+
         private void SetupInputHandler()
         {
             var coreWindow = Window.Current.CoreWindow;
@@ -117,22 +125,22 @@ namespace Paint
 
         private void CanvasRectangle_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerExited(_canvas.GetCanvasBuffer(), _canvas.GetDrawingLock(), sender, e);
+            _currentTool.CanvasPointerExited(_canvas, _canvas.GetDrawingLock(), sender, e);
         }
 
         private void CanvasRectangle_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerReleased(_canvas.GetCanvasBuffer(), _canvas.GetDrawingLock(), sender, e);
+            _currentTool.CanvasPointerReleased(_canvas, _canvas.GetDrawingLock(), sender, e);
         }
 
         private void CanvasRectangle_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerMoved(_canvas.GetCanvasBuffer(), _canvas.GetDrawingLock(), sender, e);
+            _currentTool.CanvasPointerMoved(_canvas, _canvas.GetDrawingLock(), sender, e);
         }
 
         private void CanvasRectangle_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerPressed(_canvas.GetCanvasBuffer(), _canvas.GetDrawingLock(), sender, e);
+            _currentTool.CanvasPointerPressed(_canvas, _canvas.GetDrawingLock(), sender, e);
         }
 
         private void CoreWindow_PointerWheelChanged(CoreWindow sender, PointerEventArgs args)
@@ -168,7 +176,7 @@ namespace Paint
                 switch (args.VirtualKey)
                 {
                     case VirtualKey.R:
-                        ResizeCanvas(new Vector2(1000, 1000));
+                        _canvas.Resize(new Vector2(1000, 1000));
                         return;
                     case VirtualKey.N:
                         _canvas.ClearCanvas();
@@ -178,6 +186,12 @@ namespace Paint
                         return;
                     case VirtualKey.V:
                         PasteFromClipboard();
+                        return;
+                    case VirtualKey.Z:
+                        _canvas.Undo();
+                        return;
+                    case VirtualKey.Y:
+                        _canvas.Redo();
                         return;
                 }
             }
@@ -238,11 +252,12 @@ namespace Paint
                                 buffer.Size.Width > _canvas.Size.X ? (float)buffer.Size.Width : _canvas.Size.X,
                                 buffer.Size.Height > _canvas.Size.Y ? (float)buffer.Size.Height : _canvas.Size.Y);
 
-                        ResizeCanvas(newSize);
+                        _canvas.Resize(newSize);
 
+                        var canvasBuffer = _canvas.GetCanvasBuffer();
                         lock (_canvas.GetDrawingLock())
                         {
-                            using (var drawingSession = _canvas.GetCanvasBuffer().CreateDrawingSession())
+                            using (var drawingSession = canvasBuffer.CreateDrawingSession())
                             {
                                 drawingSession.DrawImage(copy);
                                 drawingSession.DrawImage(buffer);
@@ -251,29 +266,16 @@ namespace Paint
                     }
                     else
                     {
+                        var canvasBuffer = _canvas.GetCanvasBuffer();
                         lock (_canvas.GetDrawingLock())
                         {
-                            using (var drawingSession = _canvas.GetCanvasBuffer().CreateDrawingSession())
+                            using (var drawingSession = canvasBuffer.CreateDrawingSession())
                             {
                                 drawingSession.DrawImage(buffer);
                             }
                         }
                     }
                 }
-            }
-        }
-
-        private void ResizeCanvas(Vector2 newSize)
-        {
-            if (_canvas.Resize(newSize))
-            {
-                var surface = _canvasPresenter.GetSurface(_compositor);
-                var brush = _compositor.CreateSurfaceBrush(surface);
-                brush.BitmapInterpolationMode = CompositionBitmapInterpolationMode.NearestNeighbor;
-                _visual.Brush = brush;
-                _visual.Size = _canvas.Size;
-                CanvasRectangle.Width = _canvas.Size.X;
-                CanvasRectangle.Height = _canvas.Size.Y;
             }
         }
 

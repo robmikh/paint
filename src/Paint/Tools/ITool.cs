@@ -1,4 +1,5 @@
 ﻿using Microsoft.Graphics.Canvas;
+using Paint.Drawing;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,10 +15,10 @@ namespace Paint.Tools
     {
         void SetColor(Color color);
 
-        void CanvasPointerExited(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e);
-        void CanvasPointerMoved(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e);
-        void CanvasPointerPressed(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e);
-        void CanvasPointerReleased(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e);
+        void CanvasPointerExited(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e);
+        void CanvasPointerMoved(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e);
+        void CanvasPointerPressed(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e);
+        void CanvasPointerReleased(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e);
 
         void PaintCanvas(CanvasRenderTarget canvas, object drawLock, Vector2 position);
     }

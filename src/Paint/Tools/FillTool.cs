@@ -8,6 +8,7 @@ using Microsoft.Graphics.Canvas;
 using Windows.UI;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml;
+using Paint.Drawing;
 
 namespace Paint.Tools
 {
@@ -19,23 +20,23 @@ namespace Paint.Tools
             _color = color;
         }
 
-        public void CanvasPointerExited(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e)
+        public void CanvasPointerExited(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
         {
             
         }
 
-        public void CanvasPointerMoved(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e)
+        public void CanvasPointerMoved(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
         {
             
         }
 
-        public void CanvasPointerPressed(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e)
+        public void CanvasPointerPressed(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
         {
             var currentPoint = e.GetCurrentPoint(sender as UIElement);
-            FillCanvas(canvas, drawLock, currentPoint.Position.ToVector2());
+            FillCanvas(canvas.GetCanvasBuffer(), drawLock, currentPoint.Position.ToVector2());
         }
 
-        public void CanvasPointerReleased(CanvasRenderTarget canvas, object drawLock, object sender, PointerRoutedEventArgs e)
+        public void CanvasPointerReleased(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
         {
             
         }
