@@ -59,6 +59,7 @@ namespace Paint
             var canvasSize = new Vector2(400, 400);
             CanvasRectangle.Width = canvasSize.X;
             CanvasRectangle.Height = canvasSize.Y;
+            PencilToolButton.IsChecked = true;
             InitComposition();
             InitWin2D(canvasSize);
             SetupInputHandler();
@@ -199,12 +200,7 @@ namespace Paint
             {
                 switch (args.VirtualKey)
                 {
-                    case VirtualKey.F:
-                        SwitchToFillTool();
-                        return;
-                    case VirtualKey.P:
-                        SwitchToPencilTool();
-                        return;
+                    
                 }
             }
             
@@ -300,6 +296,24 @@ namespace Paint
             }
 
             _currentTool = tool;
+        }
+
+        private void PencilToolButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (PencilToolButton.IsChecked == true)
+            {
+                SwitchToPencilTool();
+                FillToolButton.IsChecked = false;
+            }
+        }
+
+        private void FillToolButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (FillToolButton.IsChecked == true)
+            {
+                SwitchToFillTool();
+                PencilToolButton.IsChecked = false;
+            }
         }
     }
 }
