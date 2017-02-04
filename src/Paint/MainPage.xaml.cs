@@ -357,11 +357,39 @@ namespace Paint
                 {
                     var buffer = await CanvasBitmap.LoadAsync(_device, stream);
 
-                    lock (_lock)
+                    if (buffer.Size.Width > _canvasSize.X ||
+                        buffer.Size.Height > _canvasSize.Y)
                     {
-                        using (var drawingSession = _canvasBuffer.CreateDrawingSession())
+                        CanvasBitmap copy = null;
+                        lock (_lock)
                         {
-                            drawingSession.DrawImage(buffer);
+                            // Copy what's currently on the buffer
+                            copy = CanvasBitmap.CreateFromDirect3D11Surface(_device, _canvasBuffer);
+                        }
+
+                        var newSize = new Vector2(
+                                buffer.Size.Width > _canvasSize.X ? (float)buffer.Size.Width : _canvasSize.X,
+                                buffer.Size.Height > _canvasSize.Y ? (float)buffer.Size.Height : _canvasSize.Y);
+
+                        ResizeCanvas(newSize);
+
+                        lock (_lock)
+                        {
+                            using (var drawingSession = _canvasBuffer.CreateDrawingSession())
+                            {
+                                drawingSession.DrawImage(copy);
+                                drawingSession.DrawImage(buffer);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        lock (_lock)
+                        {
+                            using (var drawingSession = _canvasBuffer.CreateDrawingSession())
+                            {
+                                drawingSession.DrawImage(buffer);
+                            }
                         }
                     }
                 }
