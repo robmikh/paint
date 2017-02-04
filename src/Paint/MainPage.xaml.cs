@@ -16,7 +16,9 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Foundation.Collections;
 using Windows.Graphics.Display;
+using Windows.Storage;
 using Windows.Storage.Pickers;
+using Windows.Storage.Streams;
 using Windows.System;
 using Windows.UI;
 using Windows.UI.Composition;
@@ -185,6 +187,9 @@ namespace Paint
                     case VirtualKey.S:
                         SaveCanvas();
                         return;
+                    case VirtualKey.C:
+                        CopyToClipboard();
+                        return;
                     case VirtualKey.V:
                         PasteFromClipboard();
                         return;
@@ -275,6 +280,49 @@ namespace Paint
             }
         }
 
+        private async void CopyToClipboard()
+        {
+            if (_currentTool is SelectionTool)
+            {
+                var dataPackage = new DataPackage();
+                dataPackage.RequestedOperation = DataPackageOperation.Copy;
+                
+                var reference = await CopytToStreamReference();
+
+                dataPackage.SetBitmap(reference);
+                Clipboard.SetContent(dataPackage);
+            }
+        }
+
+        private async Task<RandomAccessStreamReference> CopytToStreamReference()
+        {
+            if (_currentTool is SelectionTool)
+            {
+                var rect = ((SelectionTool)_currentTool).GetSelectionRect();
+
+                var dataPackage = new DataPackage();
+                dataPackage.RequestedOperation = DataPackageOperation.Copy;
+
+                var copy = _canvas.Copy(rect);
+                var folder = ApplicationData.Current.TemporaryFolder;
+                var file = await folder.CreateFileAsync("clipboard.png", CreationCollisionOption.ReplaceExisting);
+                using (var stream = await file.OpenAsync(FileAccessMode.ReadWrite))
+                {
+                    await copy.SaveAsync(stream, CanvasBitmapFileFormat.Png, 1.0f);
+                }
+
+                var reference = RandomAccessStreamReference.CreateFromFile(file);
+
+                //var bits = copy.GetPixelBytes();
+                //var stream = bits.AsBuffer().AsStream().AsRandomAccessStream();
+                //var reference = RandomAccessStreamReference.CreateFromStream(stream);
+
+                return reference;
+            }
+
+            return null;
+        }
+
         private void SwitchToFillTool()
         {
             var tool = new FillTool(_device, _currentColor);
@@ -298,11 +346,18 @@ namespace Paint
             _currentTool = tool;
         }
 
+        private void SwitchToSelectionTool()
+        {
+            var tool = new SelectionTool(_device, _compositor);
+            SwitchTool(tool);
+        }
+
         private void PencilToolButton_Click(object sender, RoutedEventArgs e)
         {
             if (PencilToolButton.IsChecked == true)
             {
                 SwitchToPencilTool();
+                SelectionToolButton.IsChecked = false;
                 FillToolButton.IsChecked = false;
             }
         }
@@ -312,7 +367,18 @@ namespace Paint
             if (FillToolButton.IsChecked == true)
             {
                 SwitchToFillTool();
+                SelectionToolButton.IsChecked = false;
                 PencilToolButton.IsChecked = false;
+            }
+        }
+
+        private void SelectionToolButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (SelectionToolButton.IsChecked == true)
+            {
+                SwitchToSelectionTool();
+                PencilToolButton.IsChecked = false;
+                FillToolButton.IsChecked = false;
             }
         }
     }

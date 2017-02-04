@@ -6,6 +6,7 @@ using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.Foundation;
 using Windows.Storage;
 using Windows.UI;
 
@@ -71,11 +72,26 @@ namespace Paint.Drawing
 
         public CanvasBitmap Copy()
         {
+            var rect = new Rect(0, 0, _canvasSize.X, _canvasSize.Y);
+
+            return Copy(rect);
+        }
+
+        public CanvasBitmap Copy(Rect rect)
+        {
+            var dpi = GraphicsInformation.Dpi;
+            CanvasRenderTarget renderTarget = new CanvasRenderTarget(_device, (float)rect.Width, (float)rect.Height, dpi);
             CanvasBitmap copy = null;
             lock (_lock)
             {
+                using (var drawingSession = renderTarget.CreateDrawingSession())
+                {
+                    drawingSession.Clear(Colors.Transparent);
+                    drawingSession.DrawImage(GetCurrentBuffer(), 0, 0, rect);
+                }
+
                 // Copy what's currently on the buffer
-                copy = CanvasBitmap.CreateFromDirect3D11Surface(_device, GetCurrentBuffer());
+                copy = CanvasBitmap.CreateFromDirect3D11Surface(_device, renderTarget);
             }
 
             return copy;
@@ -120,7 +136,7 @@ namespace Paint.Drawing
 
         public async Task SaveCanvas(StorageFile file)
         {
-            using (var stream = await file.OpenAsync(Windows.Storage.FileAccessMode.ReadWrite))
+            using (var stream = await file.OpenAsync(FileAccessMode.ReadWrite))
             {
                 await GetCurrentBuffer().SaveAsync(stream, CanvasBitmapFileFormat.Png);
             }
@@ -211,7 +227,6 @@ namespace Paint.Drawing
 
         private CanvasRenderTarget GetCurrentBuffer()
         {
-            System.Diagnostics.Debug.WriteLine(_canvasBufferHead);
             return _canvasBuffers[_canvasBufferHead];
         }
 

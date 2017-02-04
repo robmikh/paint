@@ -105,6 +105,7 @@
     <Compile Include="Tools\FillTool.cs" />
     <Compile Include="Tools\ITool.cs" />
     <Compile Include="Tools\PencilTool.cs" />
+    <Compile Include="Tools\SelectionTool.cs" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
