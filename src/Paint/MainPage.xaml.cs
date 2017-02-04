@@ -265,27 +265,15 @@ namespace Paint
 
         private void ResizeCanvas(Vector2 newSize)
         {
-            var dpi = GraphicsInformation.Dpi;
-
-            if (newSize != _canvas.Size)
+            if (_canvas.Resize(newSize))
             {
-                _canvasPresenter.Stop();
-
-                lock (_canvas.GetDrawingLock())
-                {
-                    _canvas.Resize(newSize);
-                    _canvasPresenter.Resize();
-
-                    var surface = _canvasPresenter.GetSurface(_compositor);
-                    var brush = _compositor.CreateSurfaceBrush(surface);
-                    brush.BitmapInterpolationMode = CompositionBitmapInterpolationMode.NearestNeighbor;
-                    _visual.Brush = brush;
-                    _visual.Size = _canvas.Size;
-                    CanvasRectangle.Width = _canvas.Size.X;
-                    CanvasRectangle.Height = _canvas.Size.Y;
-
-                    _canvasPresenter.Start();
-                }
+                var surface = _canvasPresenter.GetSurface(_compositor);
+                var brush = _compositor.CreateSurfaceBrush(surface);
+                brush.BitmapInterpolationMode = CompositionBitmapInterpolationMode.NearestNeighbor;
+                _visual.Brush = brush;
+                _visual.Size = _canvas.Size;
+                CanvasRectangle.Width = _canvas.Size.X;
+                CanvasRectangle.Height = _canvas.Size.Y;
             }
         }
 

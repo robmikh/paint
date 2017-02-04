@@ -22,6 +22,7 @@ namespace Paint.Drawing
 
             _device = device;
             _canvas = canvas;
+            _canvas.RegisterPresenter(this);
 
             DrawBackgroundBrush();
 
@@ -41,9 +42,7 @@ namespace Paint.Drawing
                     _swapChain.WaitForVerticalBlank();
                 }
 
-                _swapChain.Dispose();
-                _swapChain = null;
-                _swapChainDestructionEvent.Set();
+                _stoppedRenderingEvent.Set();
             }
             catch (Exception e) when (_swapChain.Device.IsDeviceLost(e.HResult))
             {
@@ -63,7 +62,7 @@ namespace Paint.Drawing
         private void StartDrawLoop()
         {
             _drawLoopCancellationTokenSource = new CancellationTokenSource();
-            _swapChainDestructionEvent = new AutoResetEvent(false);
+            _stoppedRenderingEvent = new AutoResetEvent(false);
             Task.Factory.StartNew(
                 DrawLoop,
                 _drawLoopCancellationTokenSource.Token,
@@ -107,7 +106,7 @@ namespace Paint.Drawing
                 !_drawLoopCancellationTokenSource.IsCancellationRequested)
             {
                 _drawLoopCancellationTokenSource.Cancel();
-                _swapChainDestructionEvent.WaitOne();
+                _stoppedRenderingEvent.WaitOne();
 
                 if (_drawLoopCancellationTokenSource != null)
                 {
@@ -115,10 +114,10 @@ namespace Paint.Drawing
                     _drawLoopCancellationTokenSource = null;
                 }
 
-                if (_swapChainDestructionEvent != null)
+                if (_stoppedRenderingEvent != null)
                 {
-                    _swapChainDestructionEvent.Dispose();
-                    _swapChainDestructionEvent = null;
+                    _stoppedRenderingEvent.Dispose();
+                    _stoppedRenderingEvent = null;
                 }
             }
         }
@@ -137,6 +136,10 @@ namespace Paint.Drawing
         {
             Stop();
             _device = null;
+            _canvas.UnregisterPresenter();
+            _canvas = null;
+            _swapChain.Dispose();
+            _swapChain = null;
             _backgroundBrush.Dispose();
             _backgroundBrush = null;
         }
@@ -146,6 +149,6 @@ namespace Paint.Drawing
         private CanvasSwapChain _swapChain;
         private CanvasImageBrush _backgroundBrush;
         private CancellationTokenSource _drawLoopCancellationTokenSource;
-        private AutoResetEvent _swapChainDestructionEvent;
+        private AutoResetEvent _stoppedRenderingEvent;
     }
 }

@@ -13,6 +13,8 @@ namespace Paint.Drawing
 {
     class Canvas : IDisposable
     {
+        public event EventHandler<Vector2> SizeChanged;
+
         public Vector2 Size { get { return _canvasSize; } }
 
         public Canvas(CanvasDevice device, Vector2 canvasSize)
@@ -47,7 +49,7 @@ namespace Paint.Drawing
             return copy;
         }
 
-        public void Resize(Vector2 newSize)
+        public bool Resize(Vector2 newSize)
         {
             var dpi = GraphicsInformation.Dpi;
 
@@ -55,12 +57,28 @@ namespace Paint.Drawing
             {
                 _canvasSize = newSize;
 
-                // FUTURE: hold the lock
-                _canvasBuffer.Dispose();
-                _canvasBuffer = null;
+                if (_presenter != null)
+                {
+                    _presenter.Stop();
+                }
 
-                _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+                lock (_lock)
+                {
+                    _canvasBuffer.Dispose();
+                    _canvasBuffer = null;
+
+                    _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+
+                    if (_presenter != null)
+                    {
+                        _presenter.Resize();
+                        _presenter.Start();
+                    }
+                }
+                return true;
             }
+
+            return false;
         }
 
         public async Task SaveCanvas(StorageFile file)
@@ -90,6 +108,16 @@ namespace Paint.Drawing
             }
         }
 
+        public void RegisterPresenter(CanvasPresenter presenter)
+        {
+            _presenter = presenter;
+        }
+
+        public void UnregisterPresenter()
+        {
+            _presenter = null;
+        }
+
         public void Dispose()
         {
             lock (_lock)
@@ -107,5 +135,7 @@ namespace Paint.Drawing
         private CanvasDevice _device;
         private CanvasRenderTarget _canvasBuffer;
         private Vector2 _canvasSize;
+
+        private CanvasPresenter _presenter;
     }
 }
