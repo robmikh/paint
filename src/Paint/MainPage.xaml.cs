@@ -44,13 +44,9 @@ namespace Paint
 
         private CanvasDevice _device;
         private Canvas _canvas;
+        private CanvasPresenter _canvasPresenter;
         
         private ITool _currentTool;
-
-        private CanvasSwapChain _swapChain;
-        private CanvasImageBrush _backgroundBrush;
-        private CancellationTokenSource _drawLoopCancellationTokenSource;
-        private AutoResetEvent _swapChainDestructionEvent;
 
         private Color _currentColor;
         private List<Color> _colors;
@@ -94,73 +90,16 @@ namespace Paint
             _currentColorIndex = 0;
             _currentColor = _colors[_currentColorIndex];
             SwitchToPencilTool();
-            DrawBackgroundBrush();
 
-            _swapChain = new CanvasSwapChain(_device, canvasSize.X, canvasSize.Y, dpi);
+            _canvasPresenter = new CanvasPresenter(_canvas, _device);
 
-            var surface = CanvasComposition.CreateCompositionSurfaceForSwapChain(_compositor, _swapChain);
+            var surface = _canvasPresenter.GetSurface(_compositor);
             var brush = _compositor.CreateSurfaceBrush(surface);
+            brush.BitmapInterpolationMode = CompositionBitmapInterpolationMode.NearestNeighbor;
             _visual.Brush = brush;
-            _visual.Size = canvasSize;
+            _visual.Size = _canvas.Size;
 
-            StartDrawLoop();
-        }
-
-        private void DrawBackgroundBrush()
-        {
-            var dpi = GraphicsInformation.Dpi;
-
-            if (_backgroundBrush != null)
-            {
-                _backgroundBrush.Dispose();
-                _backgroundBrush = null;
-            }
-
-            using (var renderTarget = new CanvasRenderTarget(_device, 16, 16, dpi))
-            {
-                using (var drawingSession = renderTarget.CreateDrawingSession())
-                {
-                    drawingSession.Clear(Colors.Gray);
-                    drawingSession.FillRectangle(8, 0, 8, 8, Colors.DarkGray);
-                    drawingSession.FillRectangle(0, 8, 8, 8, Colors.DarkGray);
-                }
-
-                _backgroundBrush = new CanvasImageBrush(_device, renderTarget);
-                _backgroundBrush.ExtendX = CanvasEdgeBehavior.Wrap;
-                _backgroundBrush.ExtendY = CanvasEdgeBehavior.Wrap;
-            }
-        }
-
-        private void DrawLoop()
-        {
-            var canceled = _drawLoopCancellationTokenSource.Token;
-
-            try
-            {
-                while (!canceled.IsCancellationRequested)
-                {
-                    DrawFrame();
-                    _swapChain.Present();
-                    _swapChain.WaitForVerticalBlank();
-                }
-
-                _swapChain.Dispose();
-                _swapChain = null;
-                _swapChainDestructionEvent.Set();
-            }
-            catch (Exception e) when (_swapChain.Device.IsDeviceLost(e.HResult))
-            {
-                _swapChain.Device.RaiseDeviceLost();
-            }
-        }
-
-        private void DrawFrame()
-        {
-            using (var drawingSession = _swapChain.CreateDrawingSession(Colors.Transparent))
-            {
-                drawingSession.FillRectangle(0, 0, _canvas.Size.X, _canvas.Size.Y, _backgroundBrush);
-                _canvas.Blit(drawingSession);
-            }
+            _canvasPresenter.Start();
         }
 
         private void SetupInputHandler()
@@ -330,47 +269,24 @@ namespace Paint
 
             if (newSize != _canvas.Size)
             {
-                _drawLoopCancellationTokenSource.Cancel();
-                _swapChainDestructionEvent.WaitOne();
+                _canvasPresenter.Stop();
 
                 lock (_canvas.GetDrawingLock())
                 {
                     _canvas.Resize(newSize);
-                    _swapChain = new CanvasSwapChain(_device, _canvas.Size.X, _canvas.Size.Y, dpi);
+                    _canvasPresenter.Resize();
 
-                    var surface = CanvasComposition.CreateCompositionSurfaceForSwapChain(_compositor, _swapChain);
+                    var surface = _canvasPresenter.GetSurface(_compositor);
                     var brush = _compositor.CreateSurfaceBrush(surface);
+                    brush.BitmapInterpolationMode = CompositionBitmapInterpolationMode.NearestNeighbor;
                     _visual.Brush = brush;
                     _visual.Size = _canvas.Size;
                     CanvasRectangle.Width = _canvas.Size.X;
                     CanvasRectangle.Height = _canvas.Size.Y;
 
-                    StartDrawLoop();
+                    _canvasPresenter.Start();
                 }
             }
-        }
-
-        private void StartDrawLoop()
-        {
-            if (_drawLoopCancellationTokenSource != null)
-            {
-                _drawLoopCancellationTokenSource.Dispose();
-                _drawLoopCancellationTokenSource = null;
-            }
-
-            if (_swapChainDestructionEvent != null)
-            {
-                _swapChainDestructionEvent.Dispose();
-                _swapChainDestructionEvent = null;
-            }
-
-            _drawLoopCancellationTokenSource = new CancellationTokenSource();
-            _swapChainDestructionEvent = new AutoResetEvent(false);
-            Task.Factory.StartNew(
-                DrawLoop,
-                _drawLoopCancellationTokenSource.Token,
-                TaskCreationOptions.LongRunning,
-                TaskScheduler.Default);
         }
 
         private void SwitchToFillTool()

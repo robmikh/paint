@@ -96,6 +96,7 @@
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
     <Compile Include="Drawing\Canvas.cs" />
+    <Compile Include="Drawing\CanvasPresenter.cs" />
     <Compile Include="Hardware\GraphicsInformation.cs" />
     <Compile Include="MainPage.xaml.cs">
       <DependentUpon>MainPage.xaml</DependentUpon>
