@@ -48,6 +48,7 @@ namespace Paint
         private CanvasSwapChain _swapChain;
         private CanvasImageBrush _backgroundBrush;
         private CancellationTokenSource _drawLoopCancellationTokenSource;
+        private AutoResetEvent _swapChainDestructionEvent;
 
         private Vector2 _canvasSize;
         private Vector2 _brushSize;
@@ -99,16 +100,11 @@ namespace Paint
 
             _swapChain = new CanvasSwapChain(_device, _canvasSize.X, _canvasSize.Y, _dpi);
 
-            _drawLoopCancellationTokenSource = new CancellationTokenSource();
-            Task.Factory.StartNew(
-                DrawLoop,
-                _drawLoopCancellationTokenSource.Token,
-                TaskCreationOptions.LongRunning,
-                TaskScheduler.Default);
-
             var surface = CanvasComposition.CreateCompositionSurfaceForSwapChain(_compositor, _swapChain);
             var brush = _compositor.CreateSurfaceBrush(surface);
             _visual.Brush = brush;
+
+            StartDrawLoop();
         }
 
         private void DrawBackgroundBrush()
@@ -170,6 +166,8 @@ namespace Paint
                 }
 
                 _swapChain.Dispose();
+                _swapChain = null;
+                _swapChainDestructionEvent.Set();
             }
             catch (Exception e) when (_swapChain.Device.IsDeviceLost(e.HResult))
             {
@@ -269,6 +267,9 @@ namespace Paint
             {
                 switch (args.VirtualKey)
                 {
+                    case VirtualKey.R:
+                        ResizeCanvas(new Vector2(1000, 1000));
+                        return;
                     case VirtualKey.N:
                         ClearCanvas();
                         return;
@@ -459,6 +460,57 @@ namespace Paint
             }
 
             return false;
+        }
+
+        private void ResizeCanvas(Vector2 newSize)
+        {
+            if (newSize != _canvasSize)
+            {
+                _canvasSize = newSize;
+                _drawLoopCancellationTokenSource.Cancel();
+                _swapChainDestructionEvent.WaitOne();
+
+                lock (_lock)
+                {
+                    _canvasBuffer.Dispose();
+                    _canvasBuffer = null;
+
+                    _canvasBuffer = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, _dpi);
+                    _swapChain = new CanvasSwapChain(_device, _canvasSize.X, _canvasSize.Y, _dpi);
+
+                    var surface = CanvasComposition.CreateCompositionSurfaceForSwapChain(_compositor, _swapChain);
+                    var brush = _compositor.CreateSurfaceBrush(surface);
+                    _visual.Brush = brush;
+                    _visual.Size = _canvasSize;
+                    CanvasRectangle.Width = _canvasSize.X;
+                    CanvasRectangle.Height = _canvasSize.Y;
+
+                    StartDrawLoop();
+                }
+            }
+        }
+
+        private void StartDrawLoop()
+        {
+            if (_drawLoopCancellationTokenSource != null)
+            {
+                _drawLoopCancellationTokenSource.Dispose();
+                _drawLoopCancellationTokenSource = null;
+            }
+
+            if (_swapChainDestructionEvent != null)
+            {
+                _swapChainDestructionEvent.Dispose();
+                _swapChainDestructionEvent = null;
+            }
+
+            _drawLoopCancellationTokenSource = new CancellationTokenSource();
+            _swapChainDestructionEvent = new AutoResetEvent(false);
+            Task.Factory.StartNew(
+                DrawLoop,
+                _drawLoopCancellationTokenSource.Token,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
         }
     }
 }
