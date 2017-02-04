@@ -69,7 +69,7 @@ namespace Paint
             _compositor = ElementCompositionPreview.GetElementVisual(this).Compositor;
             _visual = _compositor.CreateSpriteVisual();
 
-            ElementCompositionPreview.SetElementChildVisual(this, _visual);
+            ElementCompositionPreview.SetElementChildVisual(CanvasRectangle, _visual);
         }
 
         private void InitWin2D(Vector2 canvasSize)
