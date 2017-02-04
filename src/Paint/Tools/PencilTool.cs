@@ -58,6 +58,15 @@ namespace Paint.Tools
         {
             var currentPoint = e.GetCurrentPoint(sender as UIElement);
 
+            var points = e.GetIntermediatePoints(sender as UIElement);
+            foreach (var point in points)
+            {
+                if (point.IsInContact)
+                {
+                    PaintCanvas(canvas, drawLock, point.Position.ToVector2());
+                }
+            }
+
             if (currentPoint.IsInContact)
             {
                 PaintCanvas(canvas, drawLock, currentPoint.Position.ToVector2());
@@ -77,11 +86,13 @@ namespace Paint.Tools
         {
             var size = _brushSize;
             var offset = (size / -2.0f) + position;
+            offset = new Vector2((int)offset.X, (int)offset.Y);
 
             lock (drawLock)
             {
                 using (var drawingSession = canvas.CreateDrawingSession())
                 {
+                    drawingSession.Antialiasing = CanvasAntialiasing.Aliased;
                     if (_previousPosition != null)
                     {
                         using (var brush = new CanvasImageBrush(_device, _canvasBrush))
