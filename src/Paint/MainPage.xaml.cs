@@ -41,6 +41,19 @@ namespace Paint
     /// </summary>
     public sealed partial class MainPage : Windows.UI.Xaml.Controls.Page
     {
+        private static DependencyProperty ColorIndexProperty = DependencyProperty.Register("ColorIndex", typeof(int), typeof(MainPage), new PropertyMetadata(0, ColorIndexPropertyChanged));
+
+        private static void ColorIndexPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var page = d as MainPage;
+            var value = (int)e.NewValue;
+
+            if (page != null)
+            {
+                page.SetColorIndex(value);
+            }
+        }
+
         private Compositor _compositor;
         private SpriteVisual _visual;
 
@@ -65,6 +78,9 @@ namespace Paint
             InitComposition();
             InitWin2D(canvasSize);
             SetupInputHandler();
+
+
+            DataContext = this;
         }
 
         private void InitComposition()
@@ -90,6 +106,12 @@ namespace Paint
             _colors.Add(Colors.Blue);
             _colors.Add(Colors.Green);
             _colors.Add(Colors.Yellow);
+            _colors.Add(Colors.White);
+            _colors.Add(Colors.Brown);
+            _colors.Add(Colors.Orange);
+            _colors.Add(Colors.Purple);
+
+            ColorGridView.ItemsSource = _colors;
 
             _currentColorIndex = 0;
             _currentColor = _colors[_currentColorIndex];
@@ -148,17 +170,7 @@ namespace Paint
 
         private void CoreWindow_PointerWheelChanged(CoreWindow sender, PointerEventArgs args)
         {
-            var delta = args.CurrentPoint.Properties.MouseWheelDelta;
-            var step = 120;
-            delta /= step;
-
-            if (delta != 0)
-            {
-                var index = (_currentColorIndex + delta + _colors.Count) % _colors.Count;
-                SetColorIndex(index);
-                _currentColor = _colors[_currentColorIndex];
-                _currentTool.SetColor(_currentColor);
-            }
+            
         }
 
         private bool IsKeyDown(VirtualKey key)
@@ -232,6 +244,9 @@ namespace Paint
 
             var brush = ColorRectangle.Fill as SolidColorBrush;
             brush.Color = _colors[_currentColorIndex];
+
+            _currentColor = _colors[_currentColorIndex];
+            _currentTool.SetColor(_currentColor);
         }
 
         private async void PasteFromClipboard()
@@ -380,6 +395,11 @@ namespace Paint
                 PencilToolButton.IsChecked = false;
                 FillToolButton.IsChecked = false;
             }
+        }
+
+        private void ColorGridView_ItemClick(object sender, Windows.UI.Xaml.Controls.ItemClickEventArgs e)
+        {
+
         }
     }
 }

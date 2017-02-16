@@ -95,6 +95,7 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Converters\ColorToBrushConverter.cs" />
     <Compile Include="Drawing\Canvas.cs" />
     <Compile Include="Drawing\CanvasPresenter.cs" />
     <Compile Include="Hardware\GraphicsInformation.cs" />

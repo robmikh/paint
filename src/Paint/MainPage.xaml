@@ -5,7 +5,12 @@
     xmlns:local="using:Paint"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:converters="using:Paint.Converters"
     mc:Ignorable="d">
+
+    <Page.Resources>
+        <converters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+    </Page.Resources>
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.ColumnDefinitions>
@@ -21,12 +26,26 @@
         
 
         <Grid Background="DarkGray" Grid.Column="1" Width="175">
-            <StackPanel Margin="10">
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Margin="10">
                 <ToggleButton x:Name="PencilToolButton" Content="Pencil" HorizontalAlignment="Stretch" Margin="5" Click="PencilToolButton_Click" />
                 <ToggleButton x:Name="FillToolButton" Content="Fill" HorizontalAlignment="Stretch" Margin="5" Click="FillToolButton_Click" />
                 <ToggleButton x:Name="SelectionToolButton" Content="Selection" HorizontalAlignment="Stretch" Margin="5" Click="SelectionToolButton_Click" />
             </StackPanel>
-            <Rectangle x:Name="ColorRectangle" Margin="15" Width="125" Height="50" Fill="Black" VerticalAlignment="Bottom"/>
+
+            <GridView x:Name="ColorGridView" Grid.Row="1" ItemClick="ColorGridView_ItemClick" IsItemClickEnabled="True" HorizontalAlignment="Center" SelectedIndex="{Binding ColorIndex, Mode=TwoWay}">
+                <GridView.ItemTemplate>
+                    <DataTemplate>
+                        <Rectangle Width="30" Height="30" Fill="{Binding Converter={StaticResource ColorToBrushConverter}}" Margin="5" />
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+
+            <Rectangle x:Name="ColorRectangle" Grid.Row="2" Margin="15" Width="125" Height="50" Fill="Black" VerticalAlignment="Bottom"/>
         </Grid>
     </Grid>
 </Page>
