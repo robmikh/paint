@@ -14,6 +14,7 @@ using Windows.Foundation;
 using Windows.Graphics.DirectX;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Hosting;
+using Microsoft.Graphics.Canvas.Effects;
 
 namespace Paint.Tools
 {
@@ -25,48 +26,81 @@ namespace Paint.Tools
             _compositor = compositor;
             _graphicsDevice = CanvasComposition.CreateCompositionGraphicsDevice(_compositor, _device);
 
-            _rootVisual = _compositor.CreateContainerVisual();
+            _rootVisual = _compositor.CreateSpriteVisual();
+            //((SpriteVisual)_rootVisual).Brush = _compositor.CreateColorBrush(Colors.Red);
+            //_rootVisual.Opacity = 0.7f;
             _gripperVisual = _compositor.CreateSpriteVisual();
 
-            _surface = _graphicsDevice.CreateDrawingSurface(new Size(60, 60), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
-            _surfaceBrush = _compositor.CreateSurfaceBrush(_surface);
-            _surfaceBrush.Stretch = CompositionStretch.Fill;
-            _surfaceBrush.BitmapInterpolationMode = CompositionBitmapInterpolationMode.NearestNeighbor;
-            _nineGridBrush = _compositor.CreateNineGridBrush();
-            _nineGridBrush.Source = _surfaceBrush;
-            _nineGridBrush.IsCenterHollow = true;
-            _nineGridBrush.LeftInset = 20;
-            _nineGridBrush.RightInset = 20;
-            _nineGridBrush.TopInset = 20;
-            _nineGridBrush.BottomInset = 20;
+            float size = 3;
 
-            _gripperVisual.Brush = _nineGridBrush;
+            var topSurface = _graphicsDevice.CreateDrawingSurface(new Size(size * 2, size), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
+            var bottomSurface = _graphicsDevice.CreateDrawingSurface(new Size(size * 2, size), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
+            var leftSurface = _graphicsDevice.CreateDrawingSurface(new Size(size, size * 2), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
+            var rightSurface = _graphicsDevice.CreateDrawingSurface(new Size(size, size * 2), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
 
-            var expression = _compositor.CreateExpressionAnimation();
-            expression.Expression = "Vector2(visual.Size.X + 20, visual.Size.Y + 20)";
-            expression.SetReferenceParameter("visual", _rootVisual);
-            _gripperVisual.StartAnimation(nameof(Visual.Size), expression);
-            _gripperVisual.Offset = new Vector3(-10, -10, 0);
-
-            _rootVisual.Children.InsertAtTop(_gripperVisual);
-
-            DrawBrush();
-        }
-
-        private void DrawBrush()
-        {
-            using (var drawingSession = CanvasComposition.CreateDrawingSession(_surface))
+            var color1 = Colors.Black;
+            var color2 = Colors.White;
+            using (var drawingSession = CanvasComposition.CreateDrawingSession(topSurface))
             {
                 drawingSession.Clear(Colors.Transparent);
-                drawingSession.DrawRectangle(10, 10, 40, 40, Colors.Black, 2.0f);
-                for (int x = 0; x < 3; x++)
-                {
-                    for (int y = 0; y < 3; y++)
-                    {
-                        drawingSession.FillRectangle((x * 20) +  5, (y * 20) + 5, 10, 10, Colors.White);
-                    }
-                }
+                drawingSession.FillRectangle(0, 0, size, size, color1);
+                drawingSession.FillRectangle(size, 0, size, size, color2);
             }
+            using (var drawingSession = CanvasComposition.CreateDrawingSession(leftSurface))
+            {
+                drawingSession.Clear(Colors.Transparent);
+                drawingSession.FillRectangle(0, 0, size, size, color1);
+                drawingSession.FillRectangle(0, size, size, size, color2);
+            }
+
+            color1 = Colors.White;
+            color2 = Colors.Black;
+            using (var drawingSession = CanvasComposition.CreateDrawingSession(bottomSurface))
+            {
+                drawingSession.Clear(Colors.Transparent);
+                drawingSession.FillRectangle(0, 0, size, size, color1);
+                drawingSession.FillRectangle(size, 0, size, size, color2);
+            }
+            using (var drawingSession = CanvasComposition.CreateDrawingSession(rightSurface))
+            {
+                drawingSession.Clear(Colors.Transparent);
+                drawingSession.FillRectangle(0, 0, size, size, color1);
+                drawingSession.FillRectangle(0, size, size, size, color2);
+            }
+
+            var topVisual = _compositor.CreateSpriteVisual();
+            var bottomVisual = _compositor.CreateSpriteVisual();
+            var leftVisual = _compositor.CreateSpriteVisual();
+            var rightVisual = _compositor.CreateSpriteVisual();
+
+            topVisual.RelativeSizeAdjustment = new Vector2(1, 0);
+            topVisual.Size = new Vector2(0, size);
+            topVisual.Brush = CreateEffectBrushFromSurface(topSurface);
+
+            bottomVisual.RelativeSizeAdjustment = new Vector2(1, 0);
+            bottomVisual.Size = new Vector2(0, size);
+            bottomVisual.RelativeOffsetAdjustment = new Vector3(0, 1, 0);
+            bottomVisual.Offset = new Vector3(0, -size, 0);
+            bottomVisual.Brush = CreateEffectBrushFromSurface(bottomSurface);
+
+            leftVisual.RelativeSizeAdjustment = new Vector2(0, 1);
+            leftVisual.Size = new Vector2(size, 0);
+            leftVisual.Brush = CreateEffectBrushFromSurface(leftSurface);
+
+            rightVisual.RelativeSizeAdjustment = new Vector2(0, 1);
+            rightVisual.Size = new Vector2(size, 0);
+            rightVisual.RelativeOffsetAdjustment = new Vector3(1, 0, 0);
+            rightVisual.Offset = new Vector3(-size, 0, 0);
+            rightVisual.Brush = CreateEffectBrushFromSurface(rightSurface);
+
+            _gripperVisual.Children.InsertAtTop(topVisual);
+            _gripperVisual.Children.InsertAtTop(bottomVisual);
+            _gripperVisual.Children.InsertAtTop(leftVisual);
+            _gripperVisual.Children.InsertAtTop(rightVisual);
+
+            _gripperVisual.RelativeSizeAdjustment = Vector2.One;
+
+            _rootVisual.Children.InsertAtTop(_gripperVisual);
         }
 
         private void EnsureParent(object uiElement)
@@ -78,6 +112,31 @@ namespace Paint.Tools
                 var visual = (SpriteVisual)ElementCompositionPreview.GetElementChildVisual(control);
                 visual.Children.InsertAtTop(_rootVisual);
             }
+        }
+
+        private void EnsureEffectFactory()
+        {
+            if (s_effectFactory == null)
+            {
+                var effectDescription = new BorderEffect
+                {
+                    ExtendX = CanvasEdgeBehavior.Wrap,
+                    ExtendY = CanvasEdgeBehavior.Wrap,
+                    Source = new CompositionEffectSourceParameter("source")
+                };
+
+                s_effectFactory = _compositor.CreateEffectFactory(effectDescription);
+            }
+        }
+
+        private CompositionBrush CreateEffectBrushFromSurface(ICompositionSurface surface)
+        {
+            EnsureEffectFactory();
+            var surfaceBrush = _compositor.CreateSurfaceBrush(surface);
+            var effectBrush = s_effectFactory.CreateBrush();
+            effectBrush.SetSourceParameter("source", surfaceBrush);
+
+            return effectBrush;
         }
 
         public void CanvasPointerExited(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
@@ -93,9 +152,33 @@ namespace Paint.Tools
             if (currentPoint.IsInContact)
             {
                 var pointPosition = currentPoint.Position.ToVector2();
-                var newSize = pointPosition - new Vector2(_rootVisual.Offset.X, _rootVisual.Offset.Y);
+
+                var delta = pointPosition - _originalPosition;
+                var newSize = _rootVisual.Size;
+                var newOffset = _rootVisual.Offset;
+
+                if (delta.X < 0)
+                {
+                    newSize.X = delta.X * -1.0f;
+                    newOffset.X = pointPosition.X;
+                }
+                else
+                {
+                    newSize.X = delta.X;
+                }
+
+                if (delta.Y < 0)
+                {
+                    newSize.Y = delta.Y * -1.0f;
+                    newOffset.Y = pointPosition.Y;
+                }
+                else
+                {
+                    newSize.Y = delta.Y;
+                }
 
                 _rootVisual.Size = newSize;
+                _rootVisual.Offset = newOffset;
             }
         }
 
@@ -105,7 +188,8 @@ namespace Paint.Tools
             var currentPoint = e.GetCurrentPoint(sender as UIElement);
             var pointPosition = currentPoint.Position.ToVector2();
             _rootVisual.Offset = new Vector3(pointPosition, 0);
-            _rootVisual.Size = new Vector2(20);
+            _rootVisual.Size = new Vector2(0);
+            _originalPosition = pointPosition;
         }
 
         public void CanvasPointerReleased(Canvas canvas, object drawLock, object sender, PointerRoutedEventArgs e)
@@ -115,10 +199,10 @@ namespace Paint.Tools
 
         public void Dispose()
         {
+            _gripperVisual.Dispose();
+            _gripperVisual = null;
             _rootVisual.Dispose();
-            _surface.Dispose();
-            _surfaceBrush.Dispose();
-            _nineGridBrush.Dispose();
+            _rootVisual = null;
             _device = null;
             _graphicsDevice.Dispose();
             _graphicsDevice = null;
@@ -146,11 +230,12 @@ namespace Paint.Tools
         private Compositor _compositor;
         private ContainerVisual _rootVisual;
         private SpriteVisual _gripperVisual;
-        private CompositionDrawingSurface _surface;
-        private CompositionSurfaceBrush _surfaceBrush;
-        private CompositionNineGridBrush _nineGridBrush;
 
         private CanvasDevice _device;
         private CompositionGraphicsDevice _graphicsDevice;
+
+        private Vector2 _originalPosition;
+
+        private static CompositionEffectFactory s_effectFactory;
     }
 }
