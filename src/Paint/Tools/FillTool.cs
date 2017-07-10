@@ -11,6 +11,7 @@ using Windows.UI.Xaml;
 using Paint.Drawing;
 using Paint.Hardware;
 using Windows.Foundation;
+using Paint.Extensions;
 
 namespace Paint.Tools
 {
@@ -55,11 +56,14 @@ namespace Paint.Tools
 
         private void FillCanvas(CanvasRenderTarget canvas, object drawLock, Vector2 position)
         {
+            // This seems pretty hacky... maybe dpi should be handled in the layer above the tools
+            position *= (GraphicsInformation.Dpi / 96.0f);
+
             lock (drawLock)
             {
-                var canvasSize = canvas.Size.ToVector2();
+                var canvasSize = canvas.SizeInPixels.ToVector2();
                 var colors = canvas.GetPixelColors();
-                var rect = new Rect(0, 0, canvas.Size.Width, canvas.Size.Height);
+                var rect = new Rect(0, 0, canvas.SizeInPixels.Width, canvas.SizeInPixels.Height);
 
                 if ((position.X >= rect.Left && position.X <= rect.Right) ||
                     (position.Y >= rect.Top && position.Y <= rect.Bottom))
