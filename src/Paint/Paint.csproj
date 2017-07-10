@@ -94,6 +94,7 @@
     </Compile>
     <Compile Include="Converters\ColorToBrushConverter.cs" />
     <Compile Include="Core\Image.cs" />
+    <Compile Include="Core\PaintCore.cs" />
     <Compile Include="Debug\DebugBitmapDialog.xaml.cs">
       <DependentUpon>DebugBitmapDialog.xaml</DependentUpon>
     </Compile>

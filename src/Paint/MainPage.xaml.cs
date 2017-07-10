@@ -57,55 +57,33 @@ namespace Paint
         }
 
         private Compositor _compositor;
-        private SpriteVisual _visual;
-
-        private CanvasDevice _device;
-        private Canvas _canvas;
-        private CanvasPresenter _canvasPresenter;
-        
-        private ITool _currentTool;
-
-        private Color _currentColor;
         private List<Color> _colors;
         private int _currentColorIndex;
 
-        private Image _currentImage;
+        private PaintCore _core;
 
         public MainPage()
         {
             this.InitializeComponent();
 
-            var canvasSize = new Vector2(400, 400);
-            CanvasRectangle.Width = canvasSize.X;
-            CanvasRectangle.Height = canvasSize.Y;
+            _compositor = Window.Current.Compositor;
+
+            _core = new PaintCore(_compositor);
+
+            CanvasRectangle.Width = _core.CurrentSize.X;
+            CanvasRectangle.Height = _core.CurrentSize.Y;
             PencilToolButton.IsChecked = true;
+            ElementCompositionPreview.SetElementChildVisual(CanvasRectangle, _core.Visual);
 
-            _currentImage = new Image(null, canvasSize.ToSize());
-
-            InitComposition();
-            InitWin2D(canvasSize);
+            InitColors();
             SetupInputHandler();
-
 
             DataContext = this;
         }
 
-        private void InitComposition()
-        {
-            _compositor = ElementCompositionPreview.GetElementVisual(this).Compositor;
-            _visual = _compositor.CreateSpriteVisual();
-
-            ElementCompositionPreview.SetElementChildVisual(CanvasRectangle, _visual);
-        }
-
-        private void InitWin2D(Vector2 canvasSize)
+        private void InitColors()
         {
             var dpi = GraphicsInformation.Dpi;
-            var surfaceFactory = SurfaceFactory.GetSharedSurfaceFactoryForCompositor(_compositor);
-
-            _device = CanvasComposition.GetCanvasDevice(surfaceFactory.GraphicsDevice);
-            _canvas = new Canvas(_device, canvasSize);
-            _canvas.SizeChanged += OnCanvasSizeChanged;
             
 
             _colors = new List<Color>();
@@ -121,27 +99,13 @@ namespace Paint
 
             ColorGridView.ItemsSource = _colors;
 
-            _currentColorIndex = 0;
-            _currentColor = _colors[_currentColorIndex];
-            SwitchToPencilTool();
-
-            _canvasPresenter = new CanvasPresenter(_canvas, _device);
-
-            var surface = _canvasPresenter.GetSurface(_compositor);
-            var brush = _compositor.CreateSurfaceBrush(surface);
-            brush.BitmapInterpolationMode = CompositionBitmapInterpolationMode.NearestNeighbor;
-            _visual.Brush = brush;
-            _visual.Size = _canvas.Size;
-
-            _canvasPresenter.Start();
+            SetColorIndex(_colors.IndexOf(_core.Color));
         }
 
         private void OnCanvasSizeChanged(object sender, Vector2 e)
         {
-            _visual.Size = e;
             CanvasRectangle.Width = e.X;
             CanvasRectangle.Height = e.Y;
-            _currentImage.Size = e.ToSize();
         }
 
         private void SetupInputHandler()
@@ -154,32 +118,26 @@ namespace Paint
             CanvasRectangle.PointerExited += CanvasRectangle_PointerExited;
 
             coreWindow.KeyUp += CoreWindow_KeyUp;
-            coreWindow.PointerWheelChanged += CoreWindow_PointerWheelChanged;
         }
 
         private void CanvasRectangle_PointerExited(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerExited(_canvas, _canvas.GetDrawingLock(), sender, e);
+            _core.CanvasPointerExited(sender, e);
         }
 
         private void CanvasRectangle_PointerReleased(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerReleased(_canvas, _canvas.GetDrawingLock(), sender, e);
+            _core.CanvasPointerReleased(sender, e);
         }
 
         private void CanvasRectangle_PointerMoved(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerMoved(_canvas, _canvas.GetDrawingLock(), sender, e);
+            _core.CanvasPointerMoved(sender, e);
         }
 
         private void CanvasRectangle_PointerPressed(object sender, PointerRoutedEventArgs e)
         {
-            _currentTool.CanvasPointerPressed(_canvas, _canvas.GetDrawingLock(), sender, e);
-        }
-
-        private void CoreWindow_PointerWheelChanged(CoreWindow sender, PointerEventArgs args)
-        {
-            
+            _core.CanvasPointerPressed(sender, e);
         }
 
         private bool IsKeyDown(VirtualKey key)
@@ -200,13 +158,13 @@ namespace Paint
                 switch (args.VirtualKey)
                 {
                     case VirtualKey.R:
-                        _canvas.Resize(new Vector2(1000, 1000));
+                        _core.Resize(new Vector2(1000, 1000));
                         return;
                     case VirtualKey.N:
-                        _canvas.ClearCanvas();
+                        _core.ClearCanvas();
                         return;
                     case VirtualKey.S:
-                        SaveCanvas();
+                        _core.SaveCanvas();
                         return;
                     case VirtualKey.C:
                         CopyToClipboard();
@@ -215,10 +173,10 @@ namespace Paint
                         PasteFromClipboard();
                         return;
                     case VirtualKey.Z:
-                        _canvas.Undo();
+                        _core.Undo();
                         return;
                     case VirtualKey.Y:
-                        _canvas.Redo();
+                        _core.Redo();
                         return;
                 }
             }
@@ -232,60 +190,6 @@ namespace Paint
             
         }
 
-        private void NewImage(Vector2 size)
-        {
-            _currentImage.AssignNewFile(null);
-            _currentImage.Size = size.ToSize();
-            _canvas.Reset(size);
-        }
-
-        private async void OpenFile(StorageFile file)
-        {
-            if (file == null)
-            {
-                var picker = new FileOpenPicker();
-                picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-                picker.FileTypeFilter.Add(".png");
-
-                file = await picker.PickSingleFileAsync();
-
-                if (file == null)
-                {
-                    return;
-                }
-            }
-
-            await _canvas.OpenCanvasAsync(file);
-            _currentImage.AssignNewFile(file);
-        }
-
-        private void SaveCanvas()
-        {
-            SaveCanvas(_currentImage.File);
-        }
-
-        private async void SaveCanvas(StorageFile file)
-        {
-            if (file == null)
-            {
-                var picker = new FileSavePicker();
-                picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-                picker.FileTypeChoices.Add("PNG", new List<string>() { ".png" });
-                picker.SuggestedFileName = "untitled";
-
-                file = await picker.PickSaveFileAsync();
-
-                if (file == null)
-                {
-                    return;
-                }
-
-                _currentImage.AssignNewFile(file);
-            }
-
-            await _canvas.SaveCanvasAsync(file);
-        }
-
         private void SetColorIndex(int index)
         {
             _currentColorIndex = index;
@@ -293,8 +197,7 @@ namespace Paint
             var brush = ColorRectangle.Fill as SolidColorBrush;
             brush.Color = _colors[_currentColorIndex];
 
-            _currentColor = _colors[_currentColorIndex];
-            _currentTool.SetColor(_currentColor);
+            _core.SetColor(_colors[_currentColorIndex]);
         }
 
         private async void PasteFromClipboard()
@@ -305,121 +208,27 @@ namespace Paint
                 var bitmap = await dataPackage.GetBitmapAsync();
                 using (var stream = await bitmap.OpenReadAsync())
                 {
-                    var buffer = await CanvasBitmap.LoadAsync(_device, stream);
-
-                    if (buffer.Size.Width > _canvas.Size.X ||
-                        buffer.Size.Height > _canvas.Size.Y)
-                    {
-                        var copy = _canvas.Copy();
-
-                        var newSize = new Vector2(
-                                buffer.Size.Width > _canvas.Size.X ? (float)buffer.Size.Width : _canvas.Size.X,
-                                buffer.Size.Height > _canvas.Size.Y ? (float)buffer.Size.Height : _canvas.Size.Y);
-
-                        _canvas.Resize(newSize);
-
-                        var canvasBuffer = _canvas.GetCanvasBuffer();
-                        lock (_canvas.GetDrawingLock())
-                        {
-                            using (var drawingSession = canvasBuffer.CreateDrawingSession())
-                            {
-                                drawingSession.DrawImage(copy);
-                                drawingSession.DrawImage(buffer);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var canvasBuffer = _canvas.GetCanvasBuffer();
-                        lock (_canvas.GetDrawingLock())
-                        {
-                            using (var drawingSession = canvasBuffer.CreateDrawingSession())
-                            {
-                                drawingSession.DrawImage(buffer);
-                            }
-                        }
-                    }
+                    await _core.PasteAsync(stream.AsStream());
                 }
             }
         }
 
         private async void CopyToClipboard()
         {
-            if (_currentTool is SelectionTool)
-            {
-                var dataPackage = new DataPackage();
-                dataPackage.RequestedOperation = DataPackageOperation.Copy;
-                
-                var reference = await CopytToStreamReference();
+            var dataPackage = new DataPackage();
+            dataPackage.RequestedOperation = DataPackageOperation.Copy;
 
-                dataPackage.SetBitmap(reference);
-                Clipboard.SetContent(dataPackage);
-            }
-        }
+            var reference = await _core.CopytToStreamReference();
 
-        private async Task<RandomAccessStreamReference> CopytToStreamReference()
-        {
-            if (_currentTool is SelectionTool)
-            {
-                var rect = ((SelectionTool)_currentTool).GetSelectionRect();
-
-                var dataPackage = new DataPackage();
-                dataPackage.RequestedOperation = DataPackageOperation.Copy;
-
-                var copy = _canvas.Copy(rect);
-                var folder = ApplicationData.Current.TemporaryFolder;
-                var file = await folder.CreateFileAsync("clipboard.png", CreationCollisionOption.ReplaceExisting);
-                using (var stream = await file.OpenAsync(FileAccessMode.ReadWrite))
-                {
-                    await copy.SaveAsync(stream, CanvasBitmapFileFormat.Png, 1.0f);
-                }
-
-                var reference = RandomAccessStreamReference.CreateFromFile(file);
-
-                //var bits = copy.GetPixelBytes();
-                //var stream = bits.AsBuffer().AsStream().AsRandomAccessStream();
-                //var reference = RandomAccessStreamReference.CreateFromStream(stream);
-
-                return reference;
-            }
-
-            return null;
-        }
-
-        private void SwitchToFillTool()
-        {
-            var tool = new FillTool(_device, _currentColor);
-            SwitchTool(tool);
-        }
-
-        private void SwitchToPencilTool()
-        {
-            var tool = new PencilTool(_device, new Vector2(1, 1), _currentColor);
-            SwitchTool(tool);
-        }
-
-        private void SwitchTool(ITool tool)
-        {
-            if (_currentTool != null)
-            {
-                _currentTool.Dispose();
-                _currentTool = null;
-            }
-
-            _currentTool = tool;
-        }
-
-        private void SwitchToSelectionTool()
-        {
-            var tool = new SelectionTool(_device, _compositor);
-            SwitchTool(tool);
+            dataPackage.SetBitmap(reference);
+            Clipboard.SetContent(dataPackage);
         }
 
         private void PencilToolButton_Click(object sender, RoutedEventArgs e)
         {
             if (PencilToolButton.IsChecked == true)
             {
-                SwitchToPencilTool();
+                _core.SwitchToPencilTool();
                 SelectionToolButton.IsChecked = false;
                 FillToolButton.IsChecked = false;
             }
@@ -429,7 +238,7 @@ namespace Paint
         {
             if (FillToolButton.IsChecked == true)
             {
-                SwitchToFillTool();
+                _core.SwitchToFillTool();
                 SelectionToolButton.IsChecked = false;
                 PencilToolButton.IsChecked = false;
             }
@@ -439,7 +248,7 @@ namespace Paint
         {
             if (SelectionToolButton.IsChecked == true)
             {
-                SwitchToSelectionTool();
+                _core.SwitchToSelectionTool();
                 PencilToolButton.IsChecked = false;
                 FillToolButton.IsChecked = false;
             }
@@ -452,37 +261,37 @@ namespace Paint
 
         private void SaveAppBarButton_Click(object sender, RoutedEventArgs e)
         {
-            SaveCanvas();
+            _core.SaveCanvas();
         }
 
         private void SaveAsAppBarButton_Click(object sender, RoutedEventArgs e)
         {
-            SaveCanvas(null);
+            _core.SaveCanvas(null);
         }
 
         private void OpenFileAppBarButton_Click(object sender, RoutedEventArgs e)
         {
-            OpenFile(null);
+            _core.OpenFile(null);
         }
 
         private void NewImageAppBarButton_Click(object sender, RoutedEventArgs e)
         {
-            NewImage(new Vector2(300, 300));
+            _core.NewImage(new Vector2(300, 300));
         }
 
         private void ClearAppBarButton_Click(object sender, RoutedEventArgs e)
         {
-            _canvas.ClearCanvas();
+            _core.ClearCanvas();
         }
 
         private void UndoAppBarButton_Click(object sender, RoutedEventArgs e)
         {
-            _canvas.Undo();
+            _core.Undo();
         }
 
         private void RedoAppBarButton_Click(object sender, RoutedEventArgs e)
         {
-            _canvas.Redo();
+            _core.Redo();
         }
 
         private void CopyAppBarButton_Click(object sender, RoutedEventArgs e)
