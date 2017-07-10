@@ -26,6 +26,7 @@ namespace Paint.Core
         public Vector2 CurrentSize { get { return _currentImage.Size.ToVector2(); } }
         public Color Color { get { return _currentColor; } }
 
+
         public PaintCore(Compositor compositor)
         {
             var canvasSize = new Vector2(400, 400);

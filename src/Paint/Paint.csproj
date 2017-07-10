@@ -109,6 +109,7 @@
     <Compile Include="Tools\ITool.cs" />
     <Compile Include="Tools\PencilTool.cs" />
     <Compile Include="Tools\SelectionTool.cs" />
+    <Compile Include="ViewModels\MainPageViewModel.cs" />
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest">
