@@ -1,9 +1,11 @@
 ﻿using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Brushes;
 using Microsoft.Graphics.Canvas.UI.Composition;
+using Paint.Core;
 using Paint.Drawing;
 using Paint.Hardware;
 using Paint.Tools;
+using Robmikh.CompositionSurfaceFactory;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -67,6 +69,8 @@ namespace Paint
         private List<Color> _colors;
         private int _currentColorIndex;
 
+        private Image _currentImage;
+
         public MainPage()
         {
             this.InitializeComponent();
@@ -75,6 +79,9 @@ namespace Paint
             CanvasRectangle.Width = canvasSize.X;
             CanvasRectangle.Height = canvasSize.Y;
             PencilToolButton.IsChecked = true;
+
+            _currentImage = new Image(null, canvasSize.ToSize());
+
             InitComposition();
             InitWin2D(canvasSize);
             SetupInputHandler();
@@ -94,8 +101,9 @@ namespace Paint
         private void InitWin2D(Vector2 canvasSize)
         {
             var dpi = GraphicsInformation.Dpi;
+            var surfaceFactory = SurfaceFactory.GetSharedSurfaceFactoryForCompositor(_compositor);
 
-            _device = new CanvasDevice();
+            _device = CanvasComposition.GetCanvasDevice(surfaceFactory.GraphicsDevice);
             _canvas = new Canvas(_device, canvasSize);
             _canvas.SizeChanged += OnCanvasSizeChanged;
             
@@ -133,6 +141,7 @@ namespace Paint
             _visual.Size = e;
             CanvasRectangle.Width = e.X;
             CanvasRectangle.Height = e.Y;
+            _currentImage.Size = e.ToSize();
         }
 
         private void SetupInputHandler()
@@ -223,19 +232,58 @@ namespace Paint
             
         }
 
-        private async void SaveCanvas()
+        private void NewImage(Vector2 size)
         {
-            var picker = new FileSavePicker();
-            picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
-            picker.FileTypeChoices.Add("PNG", new List<string>() { ".png" });
-            picker.SuggestedFileName = "untitled";
+            _currentImage.AssignNewFile(null);
+            _currentImage.Size = size.ToSize();
+            _canvas.Reset(size);
+        }
 
-            var file = await picker.PickSaveFileAsync();
-
-            if (file != null)
+        private async void OpenFile(StorageFile file)
+        {
+            if (file == null)
             {
-                await _canvas.SaveCanvas(file);
+                var picker = new FileOpenPicker();
+                picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+                picker.FileTypeFilter.Add(".png");
+
+                file = await picker.PickSingleFileAsync();
+
+                if (file == null)
+                {
+                    return;
+                }
             }
+
+            await _canvas.OpenCanvasAsync(file);
+            _currentImage.AssignNewFile(file);
+        }
+
+        private void SaveCanvas()
+        {
+            SaveCanvas(_currentImage.File);
+        }
+
+        private async void SaveCanvas(StorageFile file)
+        {
+            if (file == null)
+            {
+                var picker = new FileSavePicker();
+                picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+                picker.FileTypeChoices.Add("PNG", new List<string>() { ".png" });
+                picker.SuggestedFileName = "untitled";
+
+                file = await picker.PickSaveFileAsync();
+
+                if (file == null)
+                {
+                    return;
+                }
+
+                _currentImage.AssignNewFile(file);
+            }
+
+            await _canvas.SaveCanvasAsync(file);
         }
 
         private void SetColorIndex(int index)
@@ -400,6 +448,51 @@ namespace Paint
         private void ColorGridView_ItemClick(object sender, Windows.UI.Xaml.Controls.ItemClickEventArgs e)
         {
 
+        }
+
+        private void SaveAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            SaveCanvas();
+        }
+
+        private void SaveAsAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            SaveCanvas(null);
+        }
+
+        private void OpenFileAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFile(null);
+        }
+
+        private void NewImageAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            NewImage(new Vector2(300, 300));
+        }
+
+        private void ClearAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            _canvas.ClearCanvas();
+        }
+
+        private void UndoAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            _canvas.Undo();
+        }
+
+        private void RedoAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            _canvas.Redo();
+        }
+
+        private void CopyAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            CopyToClipboard();
+        }
+
+        private void PasteAppBarButton_Click(object sender, RoutedEventArgs e)
+        {
+            PasteFromClipboard();
         }
     }
 }

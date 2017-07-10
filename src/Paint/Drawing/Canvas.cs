@@ -114,11 +114,18 @@ namespace Paint.Drawing
 
                 lock (_lock)
                 {
+                     _canvasBuffers[_canvasBufferHead] = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
+                    var newBuffer = _canvasBuffers[_canvasBufferHead];
+
+                    using (var drawingSession = newBuffer.CreateDrawingSession())
+                    {
+                        drawingSession.Clear(Colors.Transparent);
+                        drawingSession.DrawImage(canvasBuffer);
+                    }
+
                     canvasBuffer.Dispose();
                     canvasBuffer = null;
 
-                    _canvasBuffers[_canvasBufferHead] = new CanvasRenderTarget(_device, _canvasSize.X, _canvasSize.Y, dpi);
-                    canvasBuffer = _canvasBuffers[_canvasBufferHead];
 
                     if (_presenter != null)
                     {
@@ -134,7 +141,39 @@ namespace Paint.Drawing
             return false;
         }
 
-        public async Task SaveCanvas(StorageFile file)
+        public void Reset(Vector2 newSize)
+        {
+            DisposeBuffers();
+            _canvasSize = newSize;
+            CreateBuffers();
+            _canvasSize = newSize + Vector2.One;
+            Resize(newSize);
+        }
+
+        private void Reset(CanvasBitmap bitmap)
+        {
+            var newSize = bitmap.Size.ToVector2();
+            DisposeBuffers();
+            _canvasSize = newSize;
+            CreateBuffers();
+            using (var drawingSession = GetCurrentBuffer().CreateDrawingSession())
+            {
+                drawingSession.DrawImage(bitmap);
+            }
+            _canvasSize = newSize + Vector2.One;
+            Resize(newSize);
+        }
+
+        public async Task OpenCanvasAsync(StorageFile file)
+        {
+            using (var stream = await file.OpenAsync(FileAccessMode.Read))
+            using (var bitmap = await CanvasBitmap.LoadAsync(_device, stream, GraphicsInformation.Dpi))
+            {
+                Reset(bitmap);
+            }
+        }
+
+        public async Task SaveCanvasAsync(StorageFile file)
         {
             using (var stream = await file.OpenAsync(FileAccessMode.ReadWrite))
             {

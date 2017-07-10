@@ -15,6 +15,7 @@ using Windows.Graphics.DirectX;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Hosting;
 using Microsoft.Graphics.Canvas.Effects;
+using Robmikh.CompositionSurfaceFactory;
 
 namespace Paint.Tools
 {
@@ -22,9 +23,8 @@ namespace Paint.Tools
     {
         public SelectionTool(CanvasDevice device, Compositor compositor)
         {
-            _device = device;
             _compositor = compositor;
-            _graphicsDevice = CanvasComposition.CreateCompositionGraphicsDevice(_compositor, _device);
+            var surfaceFactory = SurfaceFactory.GetSharedSurfaceFactoryForCompositor(_compositor);
 
             _rootVisual = _compositor.CreateSpriteVisual();
             //((SpriteVisual)_rootVisual).Brush = _compositor.CreateColorBrush(Colors.Red);
@@ -33,10 +33,10 @@ namespace Paint.Tools
 
             float size = 3;
 
-            var topSurface = _graphicsDevice.CreateDrawingSurface(new Size(size * 2, size), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
-            var bottomSurface = _graphicsDevice.CreateDrawingSurface(new Size(size * 2, size), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
-            var leftSurface = _graphicsDevice.CreateDrawingSurface(new Size(size, size * 2), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
-            var rightSurface = _graphicsDevice.CreateDrawingSurface(new Size(size, size * 2), DirectXPixelFormat.B8G8R8A8UIntNormalized, DirectXAlphaMode.Premultiplied);
+            var topSurface = surfaceFactory.CreateSurface(new Size(size * 2, size));
+            var bottomSurface = surfaceFactory.CreateSurface(new Size(size * 2, size));
+            var leftSurface = surfaceFactory.CreateSurface(new Size(size, size * 2));
+            var rightSurface = surfaceFactory.CreateSurface(new Size(size, size * 2));
 
             var color1 = Colors.Black;
             var color2 = Colors.White;
@@ -203,9 +203,6 @@ namespace Paint.Tools
             _gripperVisual = null;
             _rootVisual.Dispose();
             _rootVisual = null;
-            _device = null;
-            _graphicsDevice.Dispose();
-            _graphicsDevice = null;
         }
 
         public void PaintCanvas(CanvasRenderTarget canvas, object drawLock, Vector2 position)
@@ -230,9 +227,6 @@ namespace Paint.Tools
         private Compositor _compositor;
         private ContainerVisual _rootVisual;
         private SpriteVisual _gripperVisual;
-
-        private CanvasDevice _device;
-        private CompositionGraphicsDevice _graphicsDevice;
 
         private Vector2 _originalPosition;
 
