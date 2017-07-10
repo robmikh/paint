@@ -9,6 +9,8 @@ using Windows.UI;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml;
 using Paint.Drawing;
+using Paint.Hardware;
+using Windows.Foundation;
 
 namespace Paint.Tools
 {
@@ -64,7 +66,14 @@ namespace Paint.Tools
                 {
                     FloodPixel((int)position.X, (int)position.Y, colors, targetColor, canvasSize);
 
-                    canvas.SetPixelColors(colors);
+                    var rect = new Rect(0, 0, canvas.Size.Width, canvas.Size.Height);
+
+                    using (var bitmap = CanvasBitmap.CreateFromColors(_device, colors, (int)canvas.SizeInPixels.Width, (int)canvas.SizeInPixels.Height, GraphicsInformation.Dpi))
+                    using (var drawingSession = canvas.CreateDrawingSession())
+                    using (var layer = drawingSession.CreateLayer(1.0f, rect))
+                    {
+                        drawingSession.DrawImage(bitmap);
+                    }
                 }
             }
         }
