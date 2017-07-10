@@ -59,26 +59,29 @@ namespace Paint.Tools
             {
                 var canvasSize = canvas.Size.ToVector2();
                 var colors = canvas.GetPixelColors();
+                var rect = new Rect(0, 0, canvas.Size.Width, canvas.Size.Height);
 
-                var targetColor = colors[(int)(position.X + position.Y * canvasSize.X)];
-
-                if (targetColor != _color)
+                if ((position.X >= rect.Left && position.X <= rect.Right) ||
+                    (position.Y >= rect.Top && position.Y <= rect.Bottom))
                 {
-                    FloodPixel((int)position.X, (int)position.Y, colors, targetColor, canvasSize);
+                    var targetColor = colors[(int)(position.X + position.Y * canvasSize.X)];
 
-                    var rect = new Rect(0, 0, canvas.Size.Width, canvas.Size.Height);
-
-                    using (var bitmap = CanvasBitmap.CreateFromColors(_device, colors, (int)canvas.SizeInPixels.Width, (int)canvas.SizeInPixels.Height, GraphicsInformation.Dpi))
-                    using (var drawingSession = canvas.CreateDrawingSession())
-                    using (var layer = drawingSession.CreateLayer(1.0f, rect))
+                    if (targetColor != _color)
                     {
-                        drawingSession.DrawImage(bitmap);
+                        FloodPixel((int)position.X, (int)position.Y, colors, targetColor, canvasSize, rect);
+
+                        using (var bitmap = CanvasBitmap.CreateFromColors(_device, colors, (int)canvas.SizeInPixels.Width, (int)canvas.SizeInPixels.Height, GraphicsInformation.Dpi))
+                        using (var drawingSession = canvas.CreateDrawingSession())
+                        using (var layer = drawingSession.CreateLayer(1.0f, rect))
+                        {
+                            drawingSession.DrawImage(bitmap);
+                        }
                     }
                 }
             }
         }
 
-        private void FloodPixel(int x, int y, Color[] colors, Color targetColor, Vector2 canvasSize)
+        private void FloodPixel(int x, int y, Color[] colors, Color targetColor, Vector2 canvasSize, Rect clipRect)
         {
             if (!(x >= 0 &&
                 x < (int)canvasSize.X &&
@@ -87,6 +90,15 @@ namespace Paint.Tools
             {
                 return;
             }
+
+            if (!(x >= clipRect.Left &&
+                x <= (int)clipRect.Right &&
+                y >= clipRect.Top &&
+                y <= (int)clipRect.Bottom))
+            {
+                return;
+            }
+
 
             var index = x + y * (int)canvasSize.X;
 
