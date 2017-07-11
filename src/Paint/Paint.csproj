@@ -95,7 +95,7 @@
     <Compile Include="Converters\ColorToBrushConverter.cs" />
     <Compile Include="Core\Image.cs" />
     <Compile Include="Core\PaintCore.cs" />
-    <Compile Include="Debug\DebugBitmapDialog.xaml.cs">
+    <Compile Include="Diagnostics\DebugBitmapDialog.xaml.cs">
       <DependentUpon>DebugBitmapDialog.xaml</DependentUpon>
     </Compile>
     <Compile Include="Drawing\Canvas.cs" />
@@ -133,7 +133,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
-    <Page Include="Debug\DebugBitmapDialog.xaml">
+    <Page Include="Diagnostics\DebugBitmapDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
