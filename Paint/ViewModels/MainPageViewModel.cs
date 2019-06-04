@@ -1,13 +1,8 @@
 ﻿using Paint.Core;
-using Paint.Hardware;
-using Paint.Tools;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
@@ -122,6 +117,7 @@ namespace Paint.ViewModels
             _canvasRectangle = canvasRectangle;
             _canvasRectangle.Width = _core.CurrentSize.X;
             _canvasRectangle.Height = _core.CurrentSize.Y;
+            _core.SizeChanged += OnCanvasSizeChanged;
             ElementCompositionPreview.SetElementChildVisual(_canvasRectangle, _core.Visual);
         }
 

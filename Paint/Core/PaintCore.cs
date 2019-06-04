@@ -7,9 +7,7 @@ using Robmikh.CompositionSurfaceFactory;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
 using System.Threading.Tasks;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -26,6 +24,7 @@ namespace Paint.Core
         public Vector2 CurrentSize { get { return _currentImage.Size.ToVector2(); } }
         public Color Color { get { return _currentColor; } }
 
+        public event EventHandler<Vector2> SizeChanged;
 
         public PaintCore(Compositor compositor)
         {
@@ -94,6 +93,7 @@ namespace Paint.Core
         {
             _visual.Size = e;
             _currentImage.Size = e.ToSize();
+            SizeChanged?.Invoke(this, e);
         }
 
         public void SwitchToFillTool()
