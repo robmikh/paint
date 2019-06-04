@@ -9,7 +9,7 @@
   <Identity
     Name="34bac3e3-5bf2-4f70-ba5e-d28f62793674"
     Publisher="CN=robmi"
-    Version="1.0.0.0" />
+    Version="1.0.1.0" />
 
   <mp:PhoneIdentity PhoneProductId="34bac3e3-5bf2-4f70-ba5e-d28f62793674" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
