@@ -1,0 +1,18 @@
+﻿<UserControl
+    x:Class="Paint.Controls.SizeEntry"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:Paint.Controls"
+    xmlns:toolkitExtensions="using:Microsoft.Toolkit.Uwp.UI.Extensions"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    d:DesignHeight="300"
+    d:DesignWidth="400">
+
+    <StackPanel Orientation="Horizontal">
+        <TextBox x:Name="WidthTextBox" Text="300" Header="Width" toolkitExtensions:TextBoxRegex.ValidationMode="Dynamic" toolkitExtensions:TextBoxRegex.ValidationType="Number" TextChanged="TextBox_TextChanged" />
+        <TextBlock Text="X" Margin="10, 0, 10, 0" VerticalAlignment="Center" />
+        <TextBox x:Name="HeightTextBox" Text="300" Header="Height" toolkitExtensions:TextBoxRegex.ValidationMode="Dynamic" toolkitExtensions:TextBoxRegex.ValidationType="Number" TextChanged="TextBox_TextChanged" />
+    </StackPanel>
+</UserControl>

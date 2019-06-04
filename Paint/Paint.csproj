@@ -99,6 +99,9 @@
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Controls\SizeEntry.xaml.cs">
+      <DependentUpon>SizeEntry.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Converters\ColorToBrushConverter.cs" />
     <Compile Include="Core\Image.cs" />
     <Compile Include="Core\PaintCore.cs" />
@@ -140,6 +143,10 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Page Include="Controls\SizeEntry.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Diagnostics\DebugBitmapDialog.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -152,6 +159,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.NETCore.UniversalWindowsPlatform">
       <Version>6.2.8</Version>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Toolkit.Uwp.UI.Controls">
+      <Version>5.1.1</Version>
     </PackageReference>
     <PackageReference Include="Robmikh.CompositionSurfaceFactory">
       <Version>0.8.1-prerelease</Version>

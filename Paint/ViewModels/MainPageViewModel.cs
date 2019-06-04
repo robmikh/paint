@@ -45,6 +45,34 @@ namespace Paint.ViewModels
         public event EventHandler CanExecuteChanged;
     }
 
+    public class ActionCommand<T> : ICommand
+    {
+        public ActionCommand(Action<T> action)
+        {
+            _action = action;
+        }
+
+        public void SetAction(Action<T> action)
+        {
+            _action = action;
+            CanExecuteChanged?.Invoke(this, new EventArgs());
+        }
+
+        public bool CanExecute(object parameter)
+        {
+            return _action != null;
+        }
+
+        public void Execute(object parameter)
+        {
+            _action.Invoke((T)parameter);
+        }
+
+        private Action<T> _action;
+
+        public event EventHandler CanExecuteChanged;
+    }
+
     public class MainPageViewModel : DependencyObject
     {
         private static DependencyProperty ToolIndexProperty = DependencyProperty.Register(nameof(ToolIndex), typeof(int), typeof(MainPageViewModel), new PropertyMetadata(0, ToolIndexPropertyChanged));
@@ -107,7 +135,7 @@ namespace Paint.ViewModels
             Cut = new ActionCommand(null);
             Copy = new ActionCommand(CopyCommand);
             Paste = new ActionCommand(PasteCommand);
-            NewImage= new ActionCommand(NewImageCommand);
+            NewImage= new ActionCommand<Vector2>(NewImageCommand);
             OpenFile= new ActionCommand(OpenFileCommand);
             Clear = new ActionCommand(ClearCommand);
         }
@@ -274,9 +302,9 @@ namespace Paint.ViewModels
             _core.OpenFile(null);
         }
 
-        private void NewImageCommand()
+        private void NewImageCommand(Vector2 input)
         {
-            _core.NewImage(new Vector2(300, 300));
+            _core.NewImage(input);
         }
 
         private void ClearCommand()

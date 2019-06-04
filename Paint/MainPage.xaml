@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:Paint"
+    xmlns:controls="using:Paint.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:converters="using:Paint.Converters"
@@ -63,7 +64,16 @@
             <AppBarButton Icon="Copy" Label="Copy" Command="{Binding Copy}" />
             <AppBarButton Icon="Paste" Label="Paste" Command="{Binding Paste}"/>
             <AppBarSeparator />
-            <AppBarButton Icon="Add" Label="New" Command="{Binding NewImage}" />
+            <AppBarButton Icon="Add" Label="New" AllowFocusOnInteraction="True">
+                <AppBarButton.Flyout>
+                    <Flyout x:Name="NewFlyout">
+                        <StackPanel>
+                            <controls:SizeEntry x:Name="SizeEntry" />
+                            <Button Content="New" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Right" Margin="10" Command="{Binding NewImage}" CommandParameter="{Binding ElementName=SizeEntry, Path=SizeInput}" Click="NewFlyoutButton_Click" />
+                        </StackPanel>
+                    </Flyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
             <AppBarButton Icon="OpenFile" Label="Open" Command="{Binding OpenFile}" />
             <AppBarButton Icon="Clear" Label="Clear" Command="{Binding Clear}"/>
         </CommandBar>
