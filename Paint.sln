@@ -1,16 +1,18 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30804.86
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paint", "Paint\Paint.csproj", "{AAF1F68E-D0C6-4DE2-874B-82B627909434}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
+		Debug|ARM64 = Debug|ARM64
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|ARM = Release|ARM
+		Release|ARM64 = Release|ARM64
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
 	EndGlobalSection
@@ -18,6 +20,9 @@ Global
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|ARM.ActiveCfg = Debug|ARM
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|ARM.Build.0 = Debug|ARM
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|ARM.Deploy.0 = Debug|ARM
+		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|ARM64.Build.0 = Debug|ARM64
+		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|ARM64.Deploy.0 = Debug|ARM64
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|x64.ActiveCfg = Debug|x64
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|x64.Build.0 = Debug|x64
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Debug|x64.Deploy.0 = Debug|x64
@@ -27,6 +32,9 @@ Global
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|ARM.ActiveCfg = Release|ARM
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|ARM.Build.0 = Release|ARM
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|ARM.Deploy.0 = Release|ARM
+		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|ARM64.ActiveCfg = Release|ARM64
+		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|ARM64.Build.0 = Release|ARM64
+		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|ARM64.Deploy.0 = Release|ARM64
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|x64.ActiveCfg = Release|x64
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|x64.Build.0 = Release|x64
 		{AAF1F68E-D0C6-4DE2-874B-82B627909434}.Release|x64.Deploy.0 = Release|x64
@@ -36,5 +44,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B6EE5AA0-2396-43AD-B643-7ECCCA15D05C}
 	EndGlobalSection
 EndGlobal
